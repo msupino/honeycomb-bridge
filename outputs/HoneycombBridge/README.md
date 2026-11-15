@@ -262,6 +262,10 @@ Validate the UI parser against an existing capture without opening a window or U
 
 Ten unit tests cover the HID mapper, calibration and UI parsing/group isolation, plus the USB reader's hardware-independent GIP/auth self-tests. The actual v1 handshake and isolated group captures supply the hardware evidence; virtual output and simulator behavior remain untested.
 
+## Bravo buttons
+
+See [BRAVO-BUTTONS.md](BRAVO-BUTTONS.md) for PC-mode button numbers vs. the Xbox-mode bits measured here. The seven toggle switches (bits 35–41) are bound to light/pitot/avionics commands in `HoneycombInput/buttons.txt`; polarity still needs a hardware check.
+
 ## Live control view
 
 Above the activity cards the monitor now draws the controls themselves: Alpha yoke (pitch/roll field plus a rotating wheel), six Bravo levers, and Charlie rudder and toe brakes. Raw decodes measured on the rig are used, and a saved calibration takes precedence:

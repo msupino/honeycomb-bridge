@@ -11,3 +11,17 @@
 # 3 sim/flight_controls/pitch_trim_up
 # 4 sim/flight_controls/landing_gear_down sim/flight_controls/landing_gear_up
 # 5 sim/lights/landing_lights_on sim/lights/landing_lights_off
+
+# --- Bravo toggle switches (bits measured on the test rig; see BRAVO-BUTTONS.md) ---
+# Polarity is not yet confirmed: if a switch works upside down, swap the two commands on its line.
+35 sim/lights/beacon_lights_on sim/lights/beacon_lights_off
+36 sim/lights/landing_lights_on sim/lights/landing_lights_off
+37 sim/lights/taxi_lights_on sim/lights/taxi_lights_off
+38 sim/lights/nav_lights_on sim/lights/nav_lights_off
+39 sim/lights/strobe_lights_on sim/lights/strobe_lights_off
+40 sim/ice/pitot_heat0_on sim/ice/pitot_heat0_off
+41 sim/systems/avionics_on sim/systems/avionics_off
+
+# --- Bravo lever detent bits 48-53 (likely levers 1-6 below the detent); unbound until confirmed ---
+# 48 sim/engines/thrust_reverse_hold
+# 49 sim/engines/thrust_reverse_hold

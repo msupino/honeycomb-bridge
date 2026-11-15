@@ -1,0 +1,71 @@
+# Bravo controls: PC-mode numbering vs. Xbox-mode bits
+
+Two sources combined:
+
+1. **PC (USB HID) mode button numbers** from the community reference [RoystonS/honeycomb `bravo-controls.md`](https://github.com/RoystonS/honeycomb/blob/main/bravo-controls.md) (1-based, as Windows shows them; X-Plane and FSUIPC count from 0). Several key-map lists agree on the AP row and gear numbers ([blogofant](https://www.blogofant.de/en/technology/honeycomb-bravo-throttle-quadrant-key-maps-button-maps/), [Sporty's X-Plane PDF](https://ipadpilotnews-images.s3.us-east-2.amazonaws.com/wp-content/uploads/2022/01/07113919/10503-Honeycomb-Bravo-Configuration-X-Plane.pdf)).
+2. **Xbox-mode bits measured on this rig** during the isolated Bravo test in `captures/xone-authenticated-controls-2026-11-14.ndjson` (packets 613–1333). Bit `n` = payload byte `3 + n/8`, bit `n % 8`. These are the bit numbers used by `HoneycombInput/buttons.txt` and shown under *Calibrate for X-Plane → Buttons & switches*.
+
+Xbox mode does **not** reuse the PC numbering: two-position switches report one bit instead of two buttons, and the layout is packed differently. Confidence column: **measured** = sequence in the capture matches the physical test; **likely** = consistent but order/polarity unconfirmed; **not seen** = never present in any capture yet.
+
+## Toggle switches (row of 7)
+
+PC mode: two held buttons per switch (up / down). Xbox mode: one held bit per switch.
+
+| Switch | PC buttons (up / down) | Xbox bit | Confidence | Suggested X-Plane commands (on / off) |
+| --- | --- | --- | --- | --- |
+| 1 | 34 / 35 | 35 | measured (order) | `sim/lights/beacon_lights_on` / `_off` |
+| 2 | 36 / 37 | 36 | measured (order) | `sim/lights/landing_lights_on` / `_off` |
+| 3 | 38 / 39 | 37 | measured (order) | `sim/lights/taxi_lights_on` / `_off` |
+| 4 | 40 / 41 | 38 | measured (order) | `sim/lights/nav_lights_on` / `_off` |
+| 5 | 42 / 43 | 39 | measured (order) | `sim/lights/strobe_lights_on` / `_off` |
+| 6 | 44 / 45 | 40 | measured (order) | `sim/ice/pitot_heat0_on` / `_off` |
+| 7 | 46 / 47 | 41 | measured (order) | `sim/systems/avionics_on` / `_off` |
+
+In the test the bits cleared 35→41 and then set 41→35, i.e. the user flipped the switches left to right and back. **Polarity (set = up or down) is not confirmed**: if a light comes on when the switch goes down, swap the two commands on that line.
+
+## Lever detent buttons
+
+PC mode: pulling a lever below the flight detent presses a held button. In the capture, bits 48–53 were set at rest and cleared one by one as the levers were raised.
+
+| Lever | PC button | Xbox bit | Confidence | Suggested use |
+| --- | --- | --- | --- | --- |
+| 1 | 24 | 48 | likely | `sim/engines/thrust_reverse_hold` or unbound |
+| 2 | 25 | 49 | likely | as above |
+| 3 | 26 | 50 | likely | prop feather |
+| 4 | 27 | 51 | likely | prop feather |
+| 5 | 28 | 52 | likely | idle cutoff (`sim/engines/mixture_min`) |
+| 6 | 33 | 53 | likely | idle cutoff |
+
+## Autopilot row and knob
+
+| Control | PC button | Xbox bit | Confidence | Suggested X-Plane command |
+| --- | --- | --- | --- | --- |
+| HDG | 1 | 18–22 range? | not mapped | `sim/autopilot/heading` |
+| NAV | 2 | 18–22 range? | not mapped | `sim/autopilot/NAV` |
+| APR | 3 | 18–22 range? | not mapped | `sim/autopilot/approach` |
+| REV | 4 | 18–22 range? | not mapped | `sim/autopilot/back_course` |
+| ALT | 5 | 18–22 range? | not mapped | `sim/autopilot/altitude_hold` |
+| VS | 6 | ? | not seen | `sim/autopilot/vertical_speed` |
+| IAS | 7 | ? | not seen | `sim/autopilot/level_change` |
+| AP master | 8 | ? | not seen | `sim/autopilot/servos_toggle` |
+| Knob increment / decrement | 13 / 14 | ? | not seen | depends on selector (see below) |
+| Selector IAS / CRS / HDG / VS / ALT | 17–21 (held) | ? | not seen | used with the knob; needs plugin support |
+
+Bits 18, 19, 20, 21 and 22 each appeared for exactly one packet, in order, during the Bravo phase. That pattern fits five momentary presses (likely five AP-row buttons, left to right), but which buttons were pressed was not recorded, so they are not bound yet.
+
+## Not yet seen in any Xbox-mode capture
+
+Gear lever up/down (PC 31/32), flaps lever down/up (15/16, momentary), trim wheel forward/back (22/23), lever buttons A/B (9, 10, 11, 12, 29, 30, 48), and the selector knob. A selector knob position should always be held, yet no bit stayed set besides switches and detents, so the selector may live outside bytes 3–10 or need another report. Capture it on the next hardware session.
+
+## Alpha (for reference)
+
+During the Alpha phase bits 0–3 were pressed together and released, then 5–8 likewise; bits 4 and 11 are held most of the time (probably magneto/master switch states). Individual Alpha buttons are not mapped yet.
+
+## Next hardware session checklist
+
+1. Open *Calibrate for X-Plane → Buttons & switches*.
+2. Press each AP button once, left to right, noting bits (confirms 18–22 and finds VS / IAS / AP).
+3. Turn the selector through all five positions; turn the knob both ways.
+4. Gear up/down, flaps up/down, trim wheel both ways, each lever button.
+5. Flip each switch up and note whether its bit sets or clears (polarity).
+6. Update `buttons.txt` and this table.
