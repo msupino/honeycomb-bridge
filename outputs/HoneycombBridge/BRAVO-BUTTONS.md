@@ -88,3 +88,22 @@ Bit numbers as used by `buttons.txt` (bit n = payload byte 3 + n/8, bit n % 8).
 Not yet learned: Alpha hat ↑/→/↓, grip buttons and rockers; Bravo selector (ALT/VS/HDG/CRS/IAS, probably bits 24–31), lever A/B buttons. Bit 42 (gear up) is the held bit seen at the start of the live session.
 
 Note: the Alpha light rockers and Bravo switches 1–5 default to the same light commands, so both panels drive the same lights; rebind one set if that conflicts.
+
+## Protocol reference: Xbox FlightStick (GIP)
+
+The Alpha's GIP metadata declares the interface `Microsoft.Xbox.Input.FlightStick` (seen in the command-0x04 metadata packets of `captures/xone-authenticate-2026-11-14.ndjson`). That is a generic Xbox device class, and the Linux `xbox_gip` flight-stick patch ([linux-input, v3 10/10, March 2026](https://ratatoskr.run/linux-input/2026/03/8938149); superseded by v7) parses its 0x20 input report with the same offsets this project measured (payload offsets, after the 4-byte GIP header):
+
+| Payload bytes | FlightStick meaning (patch) | This rig |
+| --- | --- | --- |
+| 0–1 | navigation buttons (via the navigation driver) | not decoded yet |
+| 2 bit 0 / bit 1 | fire primary / fire secondary | not decoded yet |
+| 3 … | extra button *i* = byte `3 + i/8`, bit `i % 8` | exactly this project's "bit n" numbering |
+| 11–12 | roll, int16 | Alpha roll ✔ |
+| 13–14 | pitch, int16 | Alpha pitch ✔ |
+| 15–16 | yaw, int16 | never changed in any capture |
+| 17–18 | throttle, uint16 | Bravo lever 1 ✔ (10-bit value scaled to 16 bits) |
+| 19 + 2k | extra axis *k*, uint16 | Bravo levers 2–6 (k = 0–4), Charlie fields 29/31 (k = 5, 6) |
+
+The device answers a capabilities request (vendor command 0x00) with extra-button, extra-axis and LED counts; the patch reads layout from that, not from metadata.
+
+So the *byte layout* is a published, generic format, but the *assignment of Honeycomb controls to extra-button indices* is Honeycomb-specific and no public reference was found; it still has to be learned (or taken from the table above). Fire buttons in byte 2 and navigation bytes 0–1 are not used by this project yet.
