@@ -34,8 +34,8 @@ static bool brakeWritten[2]{};
 // button is held (begin/end). With an "off" command too, "on" fires once on press and "off" once
 // on release, which suits latching switches.
 struct ButtonBinding { XPLMCommandRef on = nullptr, off = nullptr; };
-static ButtonBinding bindings[64];
-static uint64_t buttonState = 0, heldCommands = 0;
+static ButtonBinding bindings[kButtonBits];
+static bool buttonState[kButtonBits]{}, held[kButtonBits]{};
 static bool buttonsSynced = false;
 static std::string buttonMapPath;
 
@@ -48,8 +48,8 @@ static void releaseBrake(int i) {
 }
 // Ends held commands without firing any release ("off") command; the next fresh input re-syncs.
 static void releaseButtons() {
-    for (int n = 0; n < 64; n++) if ((heldCommands >> n) & 1) XPLMCommandEnd(bindings[n].on);
-    heldCommands = 0; buttonsSynced = false;
+    for (size_t n = 0; n < kButtonBits; n++) if (held[n]) { XPLMCommandEnd(bindings[n].on); held[n] = false; }
+    buttonsSynced = false;
 }
 static void releaseAll() {
     for (int i = 0; i < 3; i++) releaseOverride(i);
@@ -63,7 +63,7 @@ static bool acquire(int i) {
 }
 static void logLine(const std::string &text) { XPLMDebugString(("Honeycomb Input: " + text + "\n").c_str()); }
 
-// Format, one binding per line:  <bit 0-63> <on command> [off command]   ('#' starts a comment)
+// Format, one binding per line:  <bit 0-95> <on command> [off command]   ('#' starts a comment)
 static int loadButtonMap(const std::string &path) {
     releaseButtons();
     for (auto &b : bindings) b = ButtonBinding{};
@@ -76,7 +76,7 @@ static int loadButtonMap(const std::string &path) {
         char on[256] = "", off[256] = ""; int bit = -1;
         int fields = std::sscanf(line, "%d %255s %255s", &bit, on, off);
         if (fields <= 0) continue;
-        if (fields < 2 || bit < 0 || bit > 63) { logLine("button map line " + std::to_string(number) + " ignored"); continue; }
+        if (fields < 2 || bit < 0 || bit >= int(kButtonBits)) { logLine("button map line " + std::to_string(number) + " ignored"); continue; }
         ButtonBinding binding; binding.on = XPLMFindCommand(on);
         if (fields == 3) binding.off = XPLMFindCommand(off);
         if (!binding.on || (fields == 3 && !binding.off)) { logLine("unknown command on button map line " + std::to_string(number)); continue; }
@@ -86,16 +86,16 @@ static int loadButtonMap(const std::string &path) {
     logLine("loaded " + std::to_string(count) + " button bindings from " + path);
     return count;
 }
-static void applyButtons(uint64_t now) {
-    if (!buttonsSynced) { buttonState = now; buttonsSynced = true; return; } // never fire on first sight
-    uint64_t changed = now ^ buttonState; buttonState = now;
-    for (int n = 0; changed && n < 64; n++) {
-        if (!((changed >> n) & 1)) continue;
-        bool pressed = (now >> n) & 1; const ButtonBinding &b = bindings[n];
+static void applyButtons(const HoneycombFrame &f) {
+    if (!buttonsSynced) { for (size_t n = 0; n < kButtonBits; n++) buttonState[n] = f.bit(n); buttonsSynced = true; return; } // never fire on first sight
+    for (size_t n = 0; n < kButtonBits; n++) {
+        bool pressed = f.bit(n);
+        if (pressed == buttonState[n]) continue;
+        buttonState[n] = pressed; const ButtonBinding &b = bindings[n];
         if (!b.on) continue;
         if (b.off) XPLMCommandOnce(pressed ? b.on : b.off);
-        else if (pressed) { XPLMCommandBegin(b.on); heldCommands |= 1ull << n; }
-        else if ((heldCommands >> n) & 1) { XPLMCommandEnd(b.on); heldCommands &= ~(1ull << n); }
+        else if (pressed) { XPLMCommandBegin(b.on); held[n] = true; }
+        else if (held[n]) { XPLMCommandEnd(b.on); held[n] = false; }
     }
 }
 
@@ -136,7 +136,7 @@ static float flightLoop(float, float, int, void *) {
     for (int i : {kProp, kMixture}) {
         if ((mask & (1u << i)) && axes[i]) { XPLMSetDataf(axes[i], frame.values[i]); applied |= 1u << i; }
     }
-    if (mask & kButtonsValid) { applyButtons(frame.buttons); applied |= kButtonsValid; }
+    if (mask & kButtonsValid) { applyButtons(frame); applied |= kButtonsValid; }
     else releaseButtons();
     if (fresh) {
         unsigned char acknowledgement[12] = {'H','C','A','1'};

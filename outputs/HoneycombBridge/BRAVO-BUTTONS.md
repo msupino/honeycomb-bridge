@@ -111,3 +111,7 @@ So the *byte layout* is a published, generic format, but the *assignment of Hone
 ## Charlie in Xbox mode (confirmed 2026-11-15)
 
 The Hub reports the Charlie pedals as two one-way 10-bit extra axes: field 29/30 and field 31/32. Rudder travel and the toe brakes **both drive these same two fields** (rudder one way → 29, the other way → 31; each toe brake also moves its side's field). The standard FlightStick yaw (bytes 15/16) never changes. Rudder and brakes therefore cannot be separated in Xbox mode. Honeycomb Monitor offers a **Charlie mode**: *Rudder* (yaw = field 31 − field 29), *Toe brakes* (29 = left, 31 = right) or *Calibrated mappings*, with Reverse.
+
+## Alpha yoke buttons (bytes 0–2)
+
+The Alpha grip buttons and hat are not FlightStick *extra* buttons: they report in the navigation/fire bytes 0–2, which the app now exposes as bits 64–87 (bit `64 + 8·k + j` = payload byte `k`, bit `j`). Seen live: byte 1 bits 0–3 change like a d-pad (provisional hat ↑ 72, ↓ 73, ← 74, → 75), byte 0 bits 5 and 7 and byte 1 bit 4 also change. Learn the grip with *Learn all → Grip buttons* and *Hat*.

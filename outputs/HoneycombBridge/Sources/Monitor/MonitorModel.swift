@@ -79,7 +79,7 @@ final class MonitorModel: ObservableObject {
     /// Button/switch bit numbers currently set (payload bytes 3...10), as used in the plugin's buttons.txt.
     func activeButtonBits() -> [Int] {
         guard let payload = state.lastPayload, payload.count >= 11 else { return [] }
-        return (0..<64).filter { payload[3 + $0 / 8] & (1 << UInt8($0 % 8)) != 0 }
+        return (0..<ButtonBits.count).filter { ButtonBits.isSet(payload, $0) }
     }
     // MARK: Buttons and switches
     private func loadBindings() {

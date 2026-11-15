@@ -24,7 +24,7 @@ Bravo levers are 10-bit values packed into byte pairs 17/18 … 27/28 (`low byte
 
 ## Buttons and switches
 
-The app sends payload bytes 3–10 as 64 raw bits (bit `n` = byte `3 + n/8`, bit `n % 8`). The plugin maps bits to commands from `HoneycombInput/buttons.txt`:
+The app sends button bits 0–63 = payload bytes 3–10 (bit `n` = byte `3 + n/8`, bit `n % 8`) and bits 64–87 = payload bytes 0–2 (navigation buttons, hat, fire buttons: bit `64 + 8·k + j` = byte `k`, bit `j`). The plugin maps bits to commands from `HoneycombInput/buttons.txt`:
 
 ```text
 <bit> <command>                    # held: command begins when the bit sets, ends when it clears
@@ -70,7 +70,7 @@ The SDK remains an external build dependency and is not bundled in the source ar
 
 `XPlane/PluginTests.cpp` compiles with the SDK headers and mocks the XPLM API and network reads/writes. It checks frame validation, data application, stale release, disabled output, existing override conflicts and shutdown. `Tests/MonitorTests/CalibrationTests.swift` checks signed-axis candidate learning, independent eight-bit brake learning, neutral normalization, stationary rejection and invalid definitions. These are unit tests, not a substitute for loading the plugin in X-Plane.
 
-The app-to-plugin format is ours, not the Xbox USB format: `HCB2`, mask (bits 0–7 axes, bit 8 buttons), sequence, zero reserved word, eight IEEE-754 floats (pitch, roll, yaw, throttle, left brake, right brake, prop, mixture), then two button words (low, high), all 32-bit words in network byte order, 56 bytes total. App and plugin must be from the same build. The plugin acknowledgement is `HCA1`, applied mask and sequence, 12 bytes. USB packets remain captured unchanged for investigation.
+The app-to-plugin format is ours, not the Xbox USB format: `HCB3`, mask (bits 0–7 axes, bit 8 buttons), sequence, zero reserved word, eight IEEE-754 floats (pitch, roll, yaw, throttle, left brake, right brake, prop, mixture), then three button words (96 bits, low first), all 32-bit words in network byte order, 60 bytes total. App and plugin must be from the same build. The plugin acknowledgement is `HCA1`, applied mask and sequence, 12 bytes. USB packets remain captured unchanged for investigation.
 
 ## Primary references
 

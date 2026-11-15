@@ -8,6 +8,8 @@ final class ButtonLearningTests: XCTestCase {
         XCTAssertTrue(ButtonBits.isSet(p, 35)); XCTAssertFalse(ButtonBits.isSet(p, 34))
         XCTAssertEqual(ButtonBits.changed([UInt8](repeating: 0, count: 43), p), [35])
         XCTAssertFalse(ButtonBits.isSet(p, 64))
+        p[1] = 0x01; p[2] = 0x02                     // byte 1 bit 0 = bit 72, byte 2 bit 1 = bit 81
+        XCTAssertTrue(ButtonBits.isSet(p, 72)); XCTAssertTrue(ButtonBits.isSet(p, 81)); XCTAssertFalse(ButtonBits.isSet(p, 88))
     }
     func testLearnerPrefersSingleNewlySetBit() throws {
         var base = [UInt8](repeating: 0, count: 43); base[9] = 0x01   // bit 48 held

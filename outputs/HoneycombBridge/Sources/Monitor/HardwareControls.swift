@@ -30,10 +30,10 @@ enum ControlCatalog {
     // Alpha XPC: hat + 2 buttons on the left grip, 2 rockers + 2 buttons on the right grip,
     // 9 master rocker switches and the 5-position magneto key on the base.
     static let alpha: [HardwareControl] = [
-        .init(id: "alpha.hat.up", device: .alpha, label: "Hat ↑", kind: .momentary, defaultOn: "sim/general/hat_switch_up"),
-        .init(id: "alpha.hat.down", device: .alpha, label: "Hat ↓", kind: .momentary, defaultOn: "sim/general/hat_switch_down"),
-        .init(id: "alpha.hat.left", device: .alpha, label: "Hat ←", kind: .momentary, defaultOn: "sim/general/hat_switch_left"),
-        .init(id: "alpha.hat.right", device: .alpha, label: "Hat →", kind: .momentary, defaultOn: "sim/general/hat_switch_right"),
+        .init(id: "alpha.hat.up", device: .alpha, label: "Hat ↑", kind: .momentary, defaultOn: "sim/general/hat_switch_up", knownBit: 72),
+        .init(id: "alpha.hat.down", device: .alpha, label: "Hat ↓", kind: .momentary, defaultOn: "sim/general/hat_switch_down", knownBit: 73),
+        .init(id: "alpha.hat.left", device: .alpha, label: "Hat ←", kind: .momentary, defaultOn: "sim/general/hat_switch_left", knownBit: 74),
+        .init(id: "alpha.hat.right", device: .alpha, label: "Hat →", kind: .momentary, defaultOn: "sim/general/hat_switch_right", knownBit: 75),
         .init(id: "alpha.left.red", device: .alpha, label: "Left red", kind: .momentary, defaultOn: "sim/autopilot/servos_off_any"),
         .init(id: "alpha.left.white", device: .alpha, label: "Left white", kind: .momentary),
         .init(id: "alpha.right.rocker1.up", device: .alpha, label: "Trim ↑", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_down"),
@@ -110,13 +110,17 @@ struct ControlBinding: Codable, Equatable {
 }
 
 enum ButtonBits {
+    /// Bits 0–63: payload bytes 3–10 (FlightStick extra buttons). Bits 64–87: payload bytes 0–2
+    /// (navigation buttons, d-pad/hat, fire buttons).
+    static let count = 88
+    static func byteIndex(_ bit: Int) -> Int { bit < 64 ? 3 + bit / 8 : (bit - 64) / 8 }
     static func isSet(_ payload: [UInt8], _ bit: Int) -> Bool {
-        guard (0..<64).contains(bit), payload.count > 3 + bit / 8 else { return false }
-        return payload[3 + bit / 8] & (1 << UInt8(bit % 8)) != 0
+        guard (0..<count).contains(bit), payload.count > byteIndex(bit) else { return false }
+        return payload[byteIndex(bit)] & (1 << UInt8(bit % 8)) != 0
     }
     /// Bits that differ between two payloads, lowest first.
     static func changed(_ a: [UInt8], _ b: [UInt8]) -> [Int] {
-        (0..<64).filter { isSet(a, $0) != isSet(b, $0) }
+        (0..<count).filter { isSet(a, $0) != isSet(b, $0) }
     }
 }
 

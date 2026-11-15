@@ -51,12 +51,12 @@ final class SimulatorSender: @unchecked Sendable {
         guard descriptor >= 0 else { return }
         lock.lock(); let latest = payload, definitions = mappings, active = enabled && sourceRunning, charlieMode = charlie, reversed = charlieReversed; let outputEnabled = enabled; lock.unlock()
         sequence &+= 1
-        var mask: UInt32 = 0, values = [Float](repeating: 0, count: FlightAxis.allCases.count), buttons: UInt64 = 0
+        var mask: UInt32 = 0, values = [Float](repeating: 0, count: FlightAxis.allCases.count), buttons: UInt64 = 0, buttonsHigh: UInt32 = 0
         if active, let latest {
             for definition in definitions {
                 if let value = definition.value(latest) { values[definition.axis.rawValue] = value; mask |= 1 << definition.axis.rawValue }
             }
-            // Raw button/switch bits: payload bytes 3...10 -> bits 0...63 (mapped to commands by the plugin's buttons.txt).
+            // Raw button/switch bits: payload bytes 3...10 -> bits 0...63, bytes 0...2 -> bits 64...87 (mapped to commands by the plugin's buttons.txt).
             // Charlie: override calibrated yaw/brakes according to the chosen mode.
             let yaw = UInt32(1 << FlightAxis.yaw.rawValue), brakes = UInt32(1 << FlightAxis.leftBrake.rawValue | 1 << FlightAxis.rightBrake.rawValue)
             switch charlieMode {
@@ -69,13 +69,13 @@ final class SimulatorSender: @unchecked Sendable {
                 }
             case .calibrated: break
             }
-            if latest.count >= 11 { for i in 0..<8 { buttons |= UInt64(latest[3 + i]) << (8 * i) }; mask |= 1 << 8 }
+            if latest.count >= 11 { for i in 0..<8 { buttons |= UInt64(latest[3 + i]) << (8 * i) }; for i in 0..<3 { buttonsHigh |= UInt32(latest[i]) << (8 * i) }; mask |= 1 << 8 }
         }
-        var packet = Data([72, 67, 66, 50]) // "HCB2"
+        var packet = Data([72, 67, 66, 51]) // "HCB3"
         func append(_ value: UInt32) { var network = value.bigEndian; withUnsafeBytes(of: &network) { packet.append(contentsOf: $0) } }
         append(mask); append(sequence); append(0)
         for value in values { append(value.bitPattern) }
-        append(UInt32(truncatingIfNeeded: buttons)); append(UInt32(truncatingIfNeeded: buttons >> 32))
+        append(UInt32(truncatingIfNeeded: buttons)); append(UInt32(truncatingIfNeeded: buttons >> 32)); append(buttonsHigh)
         var target = sockaddr_in(); target.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
         target.sin_family = sa_family_t(AF_INET); target.sin_port = UInt16(49876).bigEndian; target.sin_addr.s_addr = inet_addr("127.0.0.1")
         _ = withUnsafePointer(to: &target) { pointer in

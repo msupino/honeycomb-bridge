@@ -56,11 +56,11 @@ ssize_t sendto(int, const void *buffer, size_t count, int, const sockaddr *, soc
     assert(count == 12); appliedMask = readNetwork32(static_cast<const unsigned char *>(buffer) + 4); return ssize_t(count);
 }
 }
-static std::vector<unsigned char> packet(uint32_t mask, uint64_t buttons = 0) {
-    std::vector<unsigned char> data(kFrameLength); std::memcpy(data.data(), "HCB2", 4); writeNetwork32(data.data()+4,mask);
+static std::vector<unsigned char> packet(uint32_t mask, uint64_t buttons = 0, uint32_t high = 0) {
+    std::vector<unsigned char> data(kFrameLength); std::memcpy(data.data(), "HCB3", 4); writeNetwork32(data.data()+4,mask);
     const float values[kAxisCount] = {-0.5f,0.5f,0,0.75f,0.25f,0.5f,0.6f,0.9f};
     for (size_t i=0;i<kAxisCount;i++) { uint32_t bits; std::memcpy(&bits,&values[i],4);writeNetwork32(data.data()+16+4*i,bits); }
-    writeNetwork32(data.data()+16+4*kAxisCount, uint32_t(buttons)); writeNetwork32(data.data()+20+4*kAxisCount, uint32_t(buttons >> 32));
+    writeNetwork32(data.data()+16+4*kAxisCount, uint32_t(buttons)); writeNetwork32(data.data()+20+4*kAxisCount, uint32_t(buttons >> 32)); writeNetwork32(data.data()+24+4*kAxisCount, high);
     return data;
 }
 static float value(int axis) { return static_cast<MockRef *>(axes[axis])->value; }
@@ -70,11 +70,11 @@ int main() {
     std::system("mkdir -p /tmp/hcb-test/HoneycombInput/mac_x64");
     FILE *map = std::fopen("/tmp/hcb-test/HoneycombInput/buttons.txt", "w");
     std::fputs("# test map\n0 sim/flight_controls/flaps_down\n9 sim/lights/landing_lights_on sim/lights/landing_lights_off  # latching\n"
-               "70 sim/bad/bit\n3 not/a/command\n\n", map);
+               "70 sim/flight_controls/brakes_regular\n99 sim/bad/bit\n3 not/a/command\n\n", map);
     std::fclose(map);
     char name[256], signature[256], description[256]; assert(XPluginStart(name,signature,description)==1);
     assert(buttonMapPath == "/tmp/hcb-test/HoneycombInput/buttons.txt");
-    assert(bindings[0].on && !bindings[0].off && bindings[9].on && bindings[9].off && !bindings[3].on);
+    assert(bindings[0].on && !bindings[0].off && bindings[9].on && bindings[9].off && !bindings[3].on && bindings[70].on);
     inputSocket = -1; enabled = true;
 
     // Axes
@@ -101,15 +101,19 @@ int main() {
     loop(packet(kButtonsValid, 1ull << 9)); assert(flaps.ends==1);
     loop(packet(kButtonsValid, 1ull << 9 | 1)); assert(flaps.begins==2);
     receivedAt=std::chrono::steady_clock::now()-std::chrono::seconds(1);flightLoop(0,0,0,nullptr);
-    assert(flaps.ends==2 && heldCommands==0 && !buttonsSynced && off.onces==1);  // stale: end held, no release fired
+    assert(flaps.ends==2 && !held[0] && !buttonsSynced && off.onces==1);  // stale: end held, no release fired
 
+    // High bits (payload bytes 0-2): bit 70 = byte 0 bit 6
+    auto &brk = commands["sim/flight_controls/brakes_regular"];
+    loop(packet(kButtonsValid)); loop(packet(kButtonsValid, 0, 1u << 6)); assert(brk.begins==1);
+    loop(packet(kButtonsValid)); assert(brk.ends==1);
     enabled=true;XPluginReceiveMessage(0,XPLM_MSG_PLANE_LOADED,reinterpret_cast<void *>(1));assert(enabled);
     XPluginReceiveMessage(0,XPLM_MSG_PLANE_LOADED,nullptr);assert(!enabled);
 
     HoneycombFrame test;auto bad=packet(512);assert(!decodeHoneycomb(bad.data(),bad.size(),test));
     bad=packet(1);writeNetwork32(bad.data()+16,0x7fc00000);assert(!decodeHoneycomb(bad.data(),bad.size(),test));
     assert(!decodeHoneycomb(bad.data(),40,test));
-    auto good=packet(kMaskAll, 0x8000000000000001ull);assert(decodeHoneycomb(good.data(),good.size(),test) && test.buttons==0x8000000000000001ull);
+    auto good=packet(kMaskAll, 0x8000000000000001ull, 0x00800001u);assert(decodeHoneycomb(good.data(),good.size(),test) && test.buttons==0x8000000000000001ull && test.bit(64) && test.bit(87) && !test.bit(65));
     XPluginDisable();XPluginStop();
     for (int i=0;i<3;i++) assert(!owned[i]);
     std::puts("Plugin unit tests passed: decode, axes incl. prop/mixture, stale release, independent brakes, button map parsing, held and latching buttons, AI plane-load filter, override conflict, shutdown.");
