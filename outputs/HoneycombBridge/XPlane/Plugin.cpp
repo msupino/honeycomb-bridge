@@ -30,6 +30,10 @@ static XPLMDataRef axes[kAxisCount]{};
 static XPLMDataRef overrides[3]{};
 static bool owned[3]{};
 static bool brakeWritten[2]{};
+// Optional full joystick override (settings.txt "hide_mouse_box 1"): takes mouse/keyboard flight control away
+// from X-Plane while live input flows, which also removes the no-joystick mouse-flying box.
+static XPLMDataRef fullOverride = nullptr;
+static bool fullOwned = false, hideMouseBox = false;
 
 // Button map: bit index -> command. With only an "on" command the command is held while the
 // button is held (begin/end). With an "off" command too, "on" fires once on press and "off" once
@@ -52,7 +56,9 @@ static void releaseButtons() {
     for (size_t n = 0; n < kButtonBits; n++) if (held[n]) { XPLMCommandEnd(bindings[n].on); held[n] = false; }
     buttonsSynced = false;
 }
+static void releaseFull() { if (fullOwned) { XPLMSetDatai(fullOverride, 0); fullOwned = false; } }
 static void releaseAll() {
+    releaseFull();
     for (int i = 0; i < 3; i++) releaseOverride(i);
     releaseBrake(0); releaseBrake(1); releaseButtons();
 }
@@ -103,13 +109,16 @@ static void applyButtons(const HoneycombFrame &f) {
 // settings.txt in the plugin folder: "enabled 1" turns calibrated input on at load/enable.
 // The menu item writes it, so the choice survives restarts and plugin reloads.
 static bool readEnabledSetting() {
-    FILE *f = std::fopen(settingsPath.c_str(), "r"); if (!f) return false;
-    char key[64] = ""; int value = 0; bool on = false;
-    while (std::fscanf(f, "%63s %d", key, &value) == 2) if (!std::strcmp(key, "enabled")) on = value != 0;
+    FILE *f = std::fopen(settingsPath.c_str(), "r"); if (!f) { hideMouseBox = false; return false; }
+    char key[64] = ""; int value = 0; bool on = false; hideMouseBox = false;
+    while (std::fscanf(f, "%63s %d", key, &value) == 2) {
+        if (!std::strcmp(key, "enabled")) on = value != 0;
+        if (!std::strcmp(key, "hide_mouse_box")) hideMouseBox = value != 0;
+    }
     std::fclose(f); return on;
 }
 static void writeEnabledSetting(bool on) {
-    if (FILE *f = std::fopen(settingsPath.c_str(), "w")) { std::fprintf(f, "enabled %d\n", on ? 1 : 0); std::fclose(f); }
+    if (FILE *f = std::fopen(settingsPath.c_str(), "w")) { std::fprintf(f, "enabled %d\nhide_mouse_box %d\n", on ? 1 : 0, hideMouseBox ? 1 : 0); std::fclose(f); }
 }
 static void menuAction(void *, void *item) {
     if (item == reinterpret_cast<void *>(1)) { loadButtonMap(buttonMapPath); return; }
@@ -132,6 +141,9 @@ static float flightLoop(float, float, int, void *) {
     }
     bool fresh = receivedAny && std::chrono::duration<double>(std::chrono::steady_clock::now() - receivedAt).count() <= 0.25;
     uint32_t mask = enabled && fresh ? frame.mask : 0, applied = 0;
+    if (hideMouseBox && fullOverride && (mask & 3) == 3) {
+        if (!fullOwned && XPLMGetDatai(fullOverride) == 0) { XPLMSetDatai(fullOverride, 1); fullOwned = true; }
+    } else releaseFull();
     for (int i = 0; i < 3; i++) {
         if ((mask & (1u << i)) && axes[i] && acquire(i)) {
             XPLMSetDataf(axes[i], frame.values[i]); applied |= 1u << i;
@@ -172,6 +184,8 @@ PLUGIN_API int XPluginStart(char *name, char *signature, char *description) {
             logLine(std::string("unavailable/incompatible control dataref: ") + names[i]); axes[i] = nullptr;
         }
     }
+    fullOverride = XPLMFindDataRef("sim/operation/override/override_joystick");
+    if (fullOverride && (!XPLMCanWriteDataRef(fullOverride) || !(XPLMGetDataRefTypes(fullOverride) & xplmType_Int))) fullOverride = nullptr;
     const char *overrideNames[] = {"sim/operation/override/override_joystick_pitch", "sim/operation/override/override_joystick_roll",
         "sim/operation/override/override_joystick_heading"};
     for (int i = 0; i < 3; i++) {

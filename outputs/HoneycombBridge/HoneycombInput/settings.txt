@@ -1,1 +1,2 @@
 enabled 1
+hide_mouse_box 1

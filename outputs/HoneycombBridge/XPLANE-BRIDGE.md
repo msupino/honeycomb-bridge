@@ -87,4 +87,4 @@ The user saved pitch and roll through the UI; the profiles measured full signed 
 
 ## settings.txt (auto-enable)
 
-`HoneycombInput/settings.txt` holds `enabled 1` or `enabled 0`. The plugin reads it when it is enabled and after the user aircraft loads, so calibrated input comes on without using the menu. Toggling *Plugins → Honeycomb Input → Enable calibrated input* rewrites the file. The socket now binds with `SO_REUSEADDR`, and a bind failure logs the system error.
+`HoneycombInput/settings.txt` holds `enabled 1|0` and optionally `hide_mouse_box 1|0`. With `hide_mouse_box 1`, while pitch and roll input is live the plugin also holds `sim/operation/override/override_joystick` (full override of stick, mouse and keyboard flight control), which removes X-Plane's no-joystick mouse-flying box; it is released when input stops or is disabled. The plugin reads it when it is enabled and after the user aircraft loads, so calibrated input comes on without using the menu. Toggling *Plugins → Honeycomb Input → Enable calibrated input* rewrites the file. The socket now binds with `SO_REUSEADDR`, and a bind failure logs the system error.
