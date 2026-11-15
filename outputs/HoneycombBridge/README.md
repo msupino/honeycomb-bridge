@@ -266,6 +266,16 @@ Ten unit tests cover the HID mapper, calibration and UI parsing/group isolation,
 
 See [BRAVO-BUTTONS.md](BRAVO-BUTTONS.md) for PC-mode button numbers vs. the Xbox-mode bits measured here. The seven toggle switches (bits 35–41) are bound to light/pitot/avionics commands in `HoneycombInput/buttons.txt`; polarity still needs a hardware check.
 
+## Hardware layout and button learning
+
+The monitor has tabs for **Alpha XPC**, **Bravo**, **Charlie** and the original **Activity** cards. The Alpha and Bravo tabs draw the real control layout (Alpha: yoke grips with hat, buttons and rockers, master/avionics/light rockers, magneto key; Bravo: autopilot row, selector and knob, six levers with detents and lever buttons, flaps, trim, gear, seven switches). A control lights while its bit is set.
+
+To learn a control: click it, press **Learn**, then press/flip/move that one control. The first bit that changes is stored (a single newly-set bit wins if several change at once, and the others are reported). A bit learned for one control is removed from any other. Each control also carries an X-Plane command (toggles have on/off commands and a **Swap** button). Learned bits and commands are saved to `controls.json` beside the app. **Export buttons.txt…** writes the plugin's button map; save it into `X-Plane 12/Resources/plugins/HoneycombInput/` and choose *Plugins → Honeycomb Input → Reload button map*.
+
+Dashed outline = not learned; yellow dot = provisional bit from the captures (Bravo switches 35–41 and lever detents 48–53, see BRAVO-BUTTONS.md). Charlie has no buttons.
+
+`--tab alpha|bravo|charlie|activity` opens a tab at launch (useful with `--replay`).
+
 ## Live control view
 
 Above the activity cards the monitor now draws the controls themselves: Alpha yoke (pitch/roll field plus a rotating wheel), six Bravo levers, and Charlie rudder and toe brakes. Raw decodes measured on the rig are used, and a saved calibration takes precedence:

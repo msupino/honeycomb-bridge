@@ -1,0 +1,347 @@
+import SwiftUI
+
+enum DeviceTab: String, CaseIterable, Identifiable { case alpha = "Alpha XPC", bravo = "Bravo", charlie = "Charlie", activity = "Activity"; var id: String { rawValue } }
+
+/// Panel with the three hardware layouts plus the activity cards, and an inspector for learning buttons.
+struct DevicesPanel: View {
+    @ObservedObject var model: MonitorModel
+    @State private var tab: DeviceTab = .alpha
+    var connected: Bool { model.running && model.input.packets > 0 }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Picker("", selection: $tab) { ForEach(DeviceTab.allCases) { Text($0.rawValue).tag($0) } }
+                    .pickerStyle(.segmented).frame(width: 420).labelsHidden()
+                Spacer()
+                Button("Export buttons.txt…", action: model.exportButtonMap).buttonStyle(.bordered)
+            }
+            ScrollView(.vertical) {
+                switch tab {
+                case .alpha: AlphaLayout(model: model, live: connected)
+                case .bravo: BravoLayout(model: model, live: connected)
+                case .charlie: CharlieLayout(controls: model.controls, live: connected)
+                case .activity:
+                    HStack(alignment: .top, spacing: 16) {
+                        ForEach(model.input.groups) { MovementCard(group: $0, now: model.now, connected: connected) }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            if tab == .alpha || tab == .bravo { ControlInspector(model: model) }
+        }
+        .onAppear {
+            if let i = CommandLine.arguments.firstIndex(of: "--tab"), i + 1 < CommandLine.arguments.count,
+               let t = DeviceTab.allCases.first(where: { $0.rawValue.lowercased().hasPrefix(CommandLine.arguments[i + 1].lowercased()) }) { tab = t }
+        }
+    }
+}
+
+// MARK: - Shared pieces
+
+private let panelFill = Color.white.opacity(0.035)
+
+struct Plate<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased()).font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(1.4).foregroundStyle(.secondary)
+            content
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(panelFill, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.06), lineWidth: 1))
+    }
+}
+
+/// One learnable control. Lit when its bit is set; dashed when no bit is learned yet; orange while learning.
+struct ControlChip: View {
+    @ObservedObject var model: MonitorModel
+    let id: String
+    var label: String? = nil
+    var width: CGFloat = 64, height: CGFloat = 30
+    var tint: Color = .cyan
+    var round = false
+    var body: some View {
+        let control = ControlCatalog.control(id)
+        let binding = model.bindings[id]
+        let active = model.isActive(id)
+        let learning = model.learningControl == id
+        let selected = model.selectedControl == id
+        let learned = binding?.bit != nil
+        let shape = RoundedRectangle(cornerRadius: round ? height / 2 : 7)
+        Button { model.selectedControl = id } label: {
+            Text(label ?? control?.label ?? id)
+                .font(.system(size: 10, weight: .semibold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.6)
+                .foregroundStyle(active ? Color.black : Color.white.opacity(learned ? 0.9 : 0.5))
+                .frame(width: width, height: height)
+                .background(shape.fill(active ? tint : Color.white.opacity(0.06)))
+                .overlay(shape.stroke(learning ? Color.orange : selected ? Color.white : tint.opacity(learned ? 0.45 : 0.25),
+                                      style: StrokeStyle(lineWidth: learning || selected ? 2 : 1, dash: learned ? [] : [3, 3])))
+                .overlay(alignment: .topTrailing) {
+                    if binding?.provisional == true { Circle().fill(Color.yellow).frame(width: 5, height: 5).padding(3) }
+                }
+        }
+        .buttonStyle(.plain)
+        .help("\(control?.device.rawValue ?? "") \(control?.label ?? id) · \(binding?.bit.map { "bit \($0)" } ?? "not learned")")
+    }
+}
+
+/// Two-position rocker/toggle drawn as a switch; the lit half follows the learned bit.
+struct ToggleSwitchView: View {
+    @ObservedObject var model: MonitorModel
+    let id: String
+    var tint: Color = .cyan
+    var body: some View {
+        let on = model.isActive(id)
+        let learned = model.bindings[id]?.bit != nil
+        VStack(spacing: 5) {
+            Button { model.selectedControl = id } label: {
+                ZStack(alignment: on ? .top : .bottom) {
+                    RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.06)).frame(width: 26, height: 50)
+                    RoundedRectangle(cornerRadius: 4).fill(learned ? (on ? tint : Color.white.opacity(0.35)) : Color.white.opacity(0.12))
+                        .frame(width: 22, height: 24).padding(2)
+                }
+                .overlay(RoundedRectangle(cornerRadius: 5).stroke(model.learningControl == id ? Color.orange : model.selectedControl == id ? Color.white : tint.opacity(learned ? 0.4 : 0.2),
+                                                                   style: StrokeStyle(lineWidth: model.selectedControl == id || model.learningControl == id ? 2 : 1, dash: learned ? [] : [3, 3])))
+                .overlay(alignment: .topTrailing) {
+                    if model.bindings[id]?.provisional == true { Circle().fill(Color.yellow).frame(width: 5, height: 5).offset(x: 3, y: -3) }
+                }
+            }
+            .buttonStyle(.plain)
+            Text(ControlCatalog.control(id)?.label ?? id).font(.system(size: 9, weight: .medium, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
+        }
+    }
+}
+
+// MARK: - Alpha XPC
+
+struct AlphaLayout: View {
+    @ObservedObject var model: MonitorModel
+    let live: Bool
+    var body: some View {
+        VStack(spacing: 14) {
+            Plate(title: "Yoke") {
+                HStack(alignment: .center, spacing: 24) {
+                    // Left grip
+                    VStack(spacing: 8) {
+                        Text("LEFT GRIP").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                        ControlChip(model: model, id: "alpha.hat.up", label: "▲", width: 32, round: true)
+                        HStack(spacing: 6) {
+                            ControlChip(model: model, id: "alpha.hat.left", label: "◀", width: 32, round: true)
+                            Circle().fill(Color.white.opacity(0.1)).frame(width: 18, height: 18)
+                            ControlChip(model: model, id: "alpha.hat.right", label: "▶", width: 32, round: true)
+                        }
+                        ControlChip(model: model, id: "alpha.hat.down", label: "▼", width: 32, round: true)
+                        HStack(spacing: 8) {
+                            ControlChip(model: model, id: "alpha.left.red", label: "RED", width: 50, tint: .red, round: true)
+                            ControlChip(model: model, id: "alpha.left.white", label: "WHITE", width: 50, round: true)
+                        }
+                    }
+                    .frame(width: 150)
+                    // Yoke graphic with live pitch/roll
+                    VStack(spacing: 6) {
+                        YokeShape().fill(Color.cyan.opacity(live ? 0.85 : 0.3))
+                            .frame(width: 260, height: 150)
+                            .rotationEffect(.degrees(model.controls.roll * 90))
+                            .offset(y: model.controls.pitch * 18)
+                            .frame(height: 190)
+                        Text(String(format: "Roll %+.0f%%   Pitch %+.0f%%", model.controls.roll * 100, model.controls.pitch * 100))
+                            .font(.system(size: 11, design: .monospaced)).monospacedDigit().foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    // Right grip
+                    VStack(spacing: 8) {
+                        Text("RIGHT GRIP").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                        HStack(spacing: 10) {
+                            VStack(spacing: 4) {
+                                ControlChip(model: model, id: "alpha.right.rocker1.up", label: "▲", width: 34)
+                                ControlChip(model: model, id: "alpha.right.rocker1.down", label: "▼", width: 34)
+                                Text("TRIM").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                            }
+                            VStack(spacing: 4) {
+                                ControlChip(model: model, id: "alpha.right.rocker2.up", label: "▲", width: 34)
+                                ControlChip(model: model, id: "alpha.right.rocker2.down", label: "▼", width: 34)
+                                Text("ROCKER 2").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                            }
+                        }
+                        HStack(spacing: 8) {
+                            ControlChip(model: model, id: "alpha.right.button1", label: "1", width: 40, round: true)
+                            ControlChip(model: model, id: "alpha.right.button2", label: "2", width: 40, round: true)
+                        }
+                    }
+                    .frame(width: 150)
+                }
+            }
+            HStack(alignment: .top, spacing: 14) {
+                Plate(title: "Master · avionics · lights") {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(["alpha.sw.master_alt", "alpha.sw.master_bat"], id: \.self) { ToggleSwitchView(model: model, id: $0, tint: .red) }
+                        Divider().frame(height: 60)
+                        ForEach(["alpha.sw.avionics1", "alpha.sw.avionics2"], id: \.self) { ToggleSwitchView(model: model, id: $0) }
+                        Divider().frame(height: 60)
+                        ForEach(["alpha.sw.beacon", "alpha.sw.land", "alpha.sw.taxi", "alpha.sw.nav", "alpha.sw.strobe"], id: \.self) { ToggleSwitchView(model: model, id: $0) }
+                    }
+                }
+                Plate(title: "Magneto") {
+                    HStack(spacing: 6) {
+                        ForEach(["alpha.mag.off", "alpha.mag.right", "alpha.mag.left", "alpha.mag.both", "alpha.mag.start"], id: \.self) {
+                            ControlChip(model: model, id: $0, width: 46, tint: $0 == "alpha.mag.start" ? .orange : .cyan, round: true)
+                        }
+                    }
+                }
+                .frame(width: 300)
+            }
+        }
+    }
+}
+
+// MARK: - Bravo
+
+struct BravoLayout: View {
+    @ObservedObject var model: MonitorModel
+    let live: Bool
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
+                Plate(title: "Autopilot") {
+                    HStack(spacing: 6) {
+                        ForEach(["bravo.ap.hdg", "bravo.ap.nav", "bravo.ap.apr", "bravo.ap.rev", "bravo.ap.alt", "bravo.ap.vs", "bravo.ap.ias"], id: \.self) {
+                            ControlChip(model: model, id: $0, width: 48, tint: .orange)
+                        }
+                        ControlChip(model: model, id: "bravo.ap.master", width: 84, tint: .orange)
+                    }
+                }
+                Plate(title: "Selector · knob") {
+                    HStack(spacing: 12) {
+                        VStack(spacing: 4) {
+                            ForEach(["bravo.sel.alt", "bravo.sel.vs", "bravo.sel.hdg", "bravo.sel.crs", "bravo.sel.ias"], id: \.self) {
+                                ControlChip(model: model, id: $0, width: 44, height: 20, tint: .orange, round: true)
+                            }
+                        }
+                        VStack(spacing: 6) {
+                            ControlChip(model: model, id: "bravo.knob.inc", label: "+", width: 36, tint: .orange, round: true)
+                            Circle().stroke(Color.orange.opacity(0.4), lineWidth: 3).frame(width: 36, height: 36)
+                            ControlChip(model: model, id: "bravo.knob.dec", label: "−", width: 36, tint: .orange, round: true)
+                        }
+                    }
+                }
+                .frame(width: 170)
+            }
+            HStack(alignment: .top, spacing: 14) {
+                Plate(title: "Levers") {
+                    HStack(alignment: .bottom, spacing: 14) {
+                        ForEach(1...6, id: \.self) { n in
+                            VStack(spacing: 5) {
+                                HStack(spacing: 2) {
+                                    if model.bindings["bravo.lever\(n).a"] != nil { ControlChip(model: model, id: "bravo.lever\(n).a", label: "A", width: 20, height: 18, tint: .orange, round: true) }
+                                    if model.bindings["bravo.lever\(n).b"] != nil { ControlChip(model: model, id: "bravo.lever\(n).b", label: "B", width: 20, height: 18, tint: .red, round: true) }
+                                }
+                                .frame(height: 18)
+                                LeverTrack(value: model.controls.levers[n - 1], live: live).frame(width: 36, height: 120)
+                                Text("L\(n) \(Int((model.controls.levers[n - 1] * 100).rounded()))").font(.system(size: 9, design: .monospaced)).monospacedDigit().foregroundStyle(.secondary)
+                                ControlChip(model: model, id: "bravo.lever\(n).detent", label: "detent", width: 44, height: 18, tint: .orange)
+                            }
+                        }
+                    }
+                }
+                Plate(title: "Flaps · trim · gear") {
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(spacing: 6) {
+                            ControlChip(model: model, id: "bravo.flaps.up", label: "UP", width: 46, tint: .orange)
+                            Text("FLAPS").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                            ControlChip(model: model, id: "bravo.flaps.down", label: "DN", width: 46, tint: .orange)
+                        }
+                        VStack(spacing: 6) {
+                            ControlChip(model: model, id: "bravo.trim.down", label: "FWD", width: 46, tint: .orange)
+                            Capsule().fill(Color.white.opacity(0.08)).frame(width: 18, height: 60)
+                            ControlChip(model: model, id: "bravo.trim.up", label: "BACK", width: 46, tint: .orange)
+                            Text("TRIM").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                        }
+                        VStack(spacing: 6) {
+                            ControlChip(model: model, id: "bravo.gear.up", label: "UP", width: 46, tint: .orange)
+                            Image(systemName: "circle.fill").font(.system(size: 20)).foregroundStyle(.white.opacity(0.25))
+                            ControlChip(model: model, id: "bravo.gear.down", label: "DOWN", width: 46, tint: .orange)
+                            Text("GEAR").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                .frame(width: 230)
+            }
+            Plate(title: "Switches") {
+                HStack(spacing: 22) { ForEach(1...7, id: \.self) { ToggleSwitchView(model: model, id: "bravo.sw\($0)", tint: .orange) } }
+            }
+        }
+    }
+}
+
+struct LeverTrack: View {
+    let value: Double, live: Bool
+    var body: some View {
+        GeometryReader { g in
+            ZStack(alignment: .bottom) {
+                Capsule().fill(Color.white.opacity(0.05)).frame(width: 8).frame(maxWidth: .infinity)
+                Capsule().fill(Color.orange.opacity(live ? 0.35 : 0.1)).frame(width: 8, height: max(4, g.size.height * value)).frame(maxWidth: .infinity)
+                RoundedRectangle(cornerRadius: 4).fill(Color.orange.opacity(live ? 0.95 : 0.3)).frame(width: 32, height: 14)
+                    .offset(y: -max(0, (g.size.height - 14) * value))
+            }
+        }
+    }
+}
+
+// MARK: - Charlie
+
+struct CharlieLayout: View {
+    let controls: ControlsSnapshot
+    let live: Bool
+    var body: some View {
+        Plate(title: "Rudder pedals") {
+            VStack(spacing: 16) {
+                PedalsView(controls: controls, tint: .mint, live: live).frame(height: 300)
+                Text("Charlie has no buttons. Rudder appears once learned in Calibrate for X-Plane; toe brakes use raw fields 29/31 until calibrated.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// MARK: - Inspector
+
+struct ControlInspector: View {
+    @ObservedObject var model: MonitorModel
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            if let id = model.selectedControl, let control = ControlCatalog.control(id) {
+                let binding = model.bindings[id]
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(control.device.rawValue) · \(control.label)").font(.system(size: 13, weight: .semibold))
+                    Text(binding?.bit.map { "bit \($0)\(binding?.provisional == true ? " · provisional" : "")" } ?? "not learned")
+                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
+                }
+                .frame(width: 170, alignment: .leading)
+                if model.learningControl == id {
+                    Button("Cancel") { model.cancelButtonLearning() }
+                } else {
+                    Button(binding?.bit == nil ? "Learn" : "Relearn") { model.beginButtonLearning(id) }.buttonStyle(.borderedProminent)
+                }
+                TextField("X-Plane command", text: Binding(get: { binding?.on ?? "" }, set: { model.setCommand(id, on: $0) }))
+                    .textFieldStyle(.roundedBorder).font(.system(size: 11, design: .monospaced))
+                if control.kind == .toggle {
+                    TextField("Off command", text: Binding(get: { binding?.off ?? "" }, set: { model.setCommand(id, off: $0) }))
+                        .textFieldStyle(.roundedBorder).font(.system(size: 11, design: .monospaced))
+                    Button("Swap") { model.swapCommands(id) }
+                }
+                Button("Clear") { model.clearBinding(id) }.disabled(binding?.bit == nil)
+            } else {
+                Text("Click a control to learn its bit and set its X-Plane command. Dashed = not learned · yellow dot = provisional from captures.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+        .padding(12).background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(alignment: .bottomLeading) {
+            Text(model.buttonMessage).font(.system(size: 10)).foregroundStyle(.secondary).offset(x: 12, y: 18)
+        }
+        .padding(.bottom, 18)
+    }
+}

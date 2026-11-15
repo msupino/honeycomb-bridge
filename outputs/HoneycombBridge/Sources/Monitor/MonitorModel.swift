@@ -18,6 +18,12 @@ final class MonitorModel: ObservableObject {
     @Published var candidate: AxisCalibration?
     @Published var calibrationMessage = "Connect the controls first, then learn one control at a time."
     private var learner: CalibrationLearner?
+    @Published var bindings: [String: ControlBinding] = [:]
+    @Published var selectedControl: String?
+    @Published var learningControl: String?
+    @Published var buttonMessage = "Select a button or switch, then Learn and operate it."
+    private var buttonLearner: ButtonLearner?
+    private var bindingsURL: URL { profileURL.deletingLastPathComponent().appendingPathComponent("controls.json") }
     private let simulator = SimulatorSender()
     private var profileURL: URL {
         let parent = Bundle.main.bundleURL.pathExtension == "app" ? Bundle.main.bundleURL.deletingLastPathComponent() : URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
@@ -27,6 +33,7 @@ final class MonitorModel: ObservableObject {
         if let data = try? Data(contentsOf: profileURL), let saved = try? JSONDecoder().decode([AxisCalibration].self, from: data) {
             calibrations = saved.filter { $0.minimum < $0.maximum && $0.minimum.isFinite && $0.maximum.isFinite && $0.center.isFinite && ($0.width == 1 || $0.width == 2) && $0.offset >= 0 && $0.offset + $0.width <= 43 }
         }
+        loadBindings()
         simulator.onStatus = { [weak self] status in Task { @MainActor [weak self] in self?.simulatorStatus = status } }
         updateSimulator()
     }
@@ -64,6 +71,69 @@ final class MonitorModel: ObservableObject {
         guard let payload = state.lastPayload, payload.count >= 11 else { return [] }
         return (0..<64).filter { payload[3 + $0 / 8] & (1 << UInt8($0 % 8)) != 0 }
     }
+    // MARK: Buttons and switches
+    private func loadBindings() {
+        var result: [String: ControlBinding] = [:]
+        for c in ControlCatalog.all { result[c.id] = ControlBinding(bit: c.knownBit, on: c.defaultOn, off: c.defaultOff, provisional: c.knownBit != nil) }
+        if let data = try? Data(contentsOf: bindingsURL), let saved = try? JSONDecoder().decode([String: ControlBinding].self, from: data) {
+            for (id, b) in saved where ControlCatalog.control(id) != nil { result[id] = b }
+        }
+        bindings = result
+    }
+    private func saveBindings() {
+        do { try JSONEncoder().encode(bindings).write(to: bindingsURL, options: .atomic) }
+        catch { buttonMessage = "Could not save controls: \(error.localizedDescription)" }
+    }
+    func isActive(_ id: String) -> Bool {
+        guard let bit = bindings[id]?.bit, let payload = state.lastPayload else { return false }
+        return ButtonBits.isSet(payload, bit)
+    }
+    func beginButtonLearning(_ id: String) {
+        guard running, let baseline = state.lastPayload, let control = ControlCatalog.control(id) else { buttonMessage = "Connect (or replay a capture) before learning."; return }
+        selectedControl = id; learningControl = id; buttonLearner = ButtonLearner(controlID: id, baseline: baseline)
+        buttonMessage = control.kind == .toggle ? "Flip \(control.label) once." : control.kind == .position ? "Move to \(control.label)." : "Press \(control.label) once."
+    }
+    func cancelButtonLearning() { buttonLearner = nil; learningControl = nil }
+    private func learnButton(_ payload: [UInt8]) {
+        guard let learner = buttonLearner, let found = learner.detect(payload) else { return }
+        let bit = found.bit
+        buttonLearner = nil; learningControl = nil
+        let id = learner.controlID
+        let control = ControlCatalog.control(id)
+        var taken: [String] = []
+        for (other, b) in bindings where other != id && b.bit == bit { bindings[other]?.bit = nil; taken.append(ControlCatalog.control(other)?.label ?? other) }
+        // For a toggle, the learned bit should be set in the "on" position; flipping off → note polarity.
+        let setNow = ButtonBits.isSet(payload, bit)
+        bindings[id, default: ControlBinding(bit: nil, on: control?.defaultOn ?? "", off: control?.defaultOff ?? "")].bit = bit
+        bindings[id]?.provisional = false
+        saveBindings()
+        var message = "\(control?.label ?? id) = bit \(bit)."
+        if control?.kind == .toggle { message += setNow ? " Bit sets in the position you moved to; that position sends the on command." : " Bit cleared when you moved it; the other position sends the on command — swap commands if needed." }
+        if !found.others.isEmpty { message += " Other bits changed too (\(found.others.map(String.init).joined(separator: ", "))); relearn if this is wrong." }
+        if !taken.isEmpty { message += " Removed from \(taken.joined(separator: ", "))." }
+        buttonMessage = message
+    }
+    func setCommand(_ id: String, on: String? = nil, off: String? = nil) {
+        if let on { bindings[id]?.on = on.trimmingCharacters(in: .whitespaces) }
+        if let off { bindings[id]?.off = off.trimmingCharacters(in: .whitespaces) }
+        saveBindings()
+    }
+    func swapCommands(_ id: String) {
+        guard var b = bindings[id] else { return }
+        (b.on, b.off) = (b.off, b.on); bindings[id] = b; saveBindings()
+    }
+    func clearBinding(_ id: String) { bindings[id]?.bit = nil; bindings[id]?.provisional = false; saveBindings() }
+    func exportButtonMap() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "buttons.txt"
+        let plugin = URL(fileURLWithPath: "/Volumes/Data/X-Plane 12/Resources/plugins/HoneycombInput")
+        if FileManager.default.fileExists(atPath: plugin.path) { panel.directoryURL = plugin }
+        panel.message = "Save into X-Plane 12/Resources/plugins/HoneycombInput, then use Plugins → Honeycomb Input → Reload button map."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { try ButtonMapExport.render(bindings).write(to: url, atomically: true, encoding: .utf8); buttonMessage = "Exported \(url.path)" }
+        catch { buttonMessage = "Export failed: \(error.localizedDescription)" }
+    }
+
     func preview(_ definition: AxisCalibration) -> Float { state.lastPayload.flatMap { definition.value($0) } ?? 0 }
     private func persist() {
         do { let data = try JSONEncoder().encode(calibrations); try data.write(to: profileURL, options: .atomic) }
@@ -155,7 +225,7 @@ final class MonitorModel: ObservableObject {
         while let newline = buffer.firstIndex(of: 10) {
             let line = Data(buffer[..<newline]); buffer.removeSubrange(...newline)
             if let payload = InputState.payload(from: line) {
-                state.accept(payload); simulator.update(payload); learner?.accept(payload); status = "Receiving Xbox input"
+                state.accept(payload); simulator.update(payload); learner?.accept(payload); learnButton(payload); status = "Receiving Xbox input"
             } else if let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] {
                 switch event["event"] as? String {
                 case "gip_auth_verified": verified = true; status = "Session verified · waiting for input"
@@ -185,7 +255,7 @@ final class MonitorModel: ObservableObject {
         Timer.scheduledTimer(withTimeInterval: 0.004, repeats: true) { [weak self] timer in
             Task { @MainActor [weak self] in
                 guard let self, self.running, self.process == nil else { timer.invalidate(); return }
-                self.state.accept(payloads[index]); index = (index + 1) % payloads.count
+                self.state.accept(payloads[index]); self.learnButton(payloads[index]); index = (index + 1) % payloads.count
             }
         }
     }

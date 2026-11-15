@@ -23,11 +23,11 @@ struct MonitorApp: App {
     var body: some Scene {
         Window("Honeycomb Monitor", id: "monitor") {
             MonitorView(model: model)
-                .frame(minWidth: 1040, minHeight: 950)
+                .frame(minWidth: 1100, minHeight: 820)
                 .preferredColorScheme(.dark)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in model.stop() }
         }
-        .defaultSize(width: 1180, height: 1000)
+        .defaultSize(width: 1200, height: 960)
         .windowStyle(.hiddenTitleBar)
     }
 }
@@ -68,20 +68,14 @@ struct MonitorView: View {
                 Spacer()
                 Text(model.simulatorStatus).font(.system(size: 11)).foregroundStyle(.secondary)
             }
-            ControlsPanel(controls: model.controls, connected: model.running && model.input.packets > 0)
-            HStack(alignment: .top, spacing: 16) {
-                ForEach(model.input.groups) { group in
-                    MovementCard(group: group, now: model.now, connected: model.running && model.input.packets > 0)
-                }
-            }
+            DevicesPanel(model: model)
             if let error = model.error {
                 Label(error, systemImage: "exclamationmark.circle").font(.system(size: 12)).foregroundStyle(.orange).textSelection(.enabled)
             }
-            Spacer(minLength: 0)
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("A movement monitor, before a simulator driver.").font(.system(size: 12, weight: .medium))
-                    Text("Channels are grouped from the isolated tests. Names, ranges and calibration are still being verified.")
+                    Text("Live hardware layout · learn any button or switch").font(.system(size: 12, weight: .medium))
+                    Text("Click a control, press Learn, operate it. Export buttons.txt for the X-Plane plugin. Bits marked provisional come from captures.")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Spacer()

@@ -1,0 +1,144 @@
+import Foundation
+
+/// A physical button, switch position or detent on the Alpha XPC or Bravo.
+/// In Xbox mode each is one bit of payload bytes 3...10 (bit n = byte 3 + n/8, bit n % 8), learned per control.
+enum ControlKind: String, Codable {
+    case momentary   // pressed while held (buttons, hat directions, encoder ticks, flaps/trim)
+    case toggle      // two-position switch: bit set = "on" position, bound to on/off commands
+    case position    // one position of a multi-position selector (magneto, AP selector, gear lever)
+}
+
+struct HardwareControl: Identifiable, Hashable {
+    let id: String
+    let device: Device
+    let label: String
+    let kind: ControlKind
+    var defaultOn = ""
+    var defaultOff = ""
+    var knownBit: Int? = nil   // provisional bit from captures (see BRAVO-BUTTONS.md)
+    enum Device: String, CaseIterable, Identifiable { case alpha = "Alpha", bravo = "Bravo", charlie = "Charlie"; var id: String { rawValue } }
+}
+
+enum ControlCatalog {
+    static let all: [HardwareControl] = alpha + bravo
+    static func control(_ id: String) -> HardwareControl? { all.first { $0.id == id } }
+
+    // Alpha XPC: hat + 2 buttons on the left grip, 2 rockers + 2 buttons on the right grip,
+    // 9 master rocker switches and the 5-position magneto key on the base.
+    static let alpha: [HardwareControl] = [
+        .init(id: "alpha.hat.up", device: .alpha, label: "Hat ↑", kind: .momentary, defaultOn: "sim/general/hat_switch_up"),
+        .init(id: "alpha.hat.down", device: .alpha, label: "Hat ↓", kind: .momentary, defaultOn: "sim/general/hat_switch_down"),
+        .init(id: "alpha.hat.left", device: .alpha, label: "Hat ←", kind: .momentary, defaultOn: "sim/general/hat_switch_left"),
+        .init(id: "alpha.hat.right", device: .alpha, label: "Hat →", kind: .momentary, defaultOn: "sim/general/hat_switch_right"),
+        .init(id: "alpha.left.red", device: .alpha, label: "Left red", kind: .momentary, defaultOn: "sim/autopilot/servos_off_any"),
+        .init(id: "alpha.left.white", device: .alpha, label: "Left white", kind: .momentary),
+        .init(id: "alpha.right.rocker1.up", device: .alpha, label: "Trim ↑", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_down"),
+        .init(id: "alpha.right.rocker1.down", device: .alpha, label: "Trim ↓", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_up"),
+        .init(id: "alpha.right.rocker2.up", device: .alpha, label: "Rocker 2 ↑", kind: .momentary),
+        .init(id: "alpha.right.rocker2.down", device: .alpha, label: "Rocker 2 ↓", kind: .momentary),
+        .init(id: "alpha.right.button1", device: .alpha, label: "Right 1", kind: .momentary),
+        .init(id: "alpha.right.button2", device: .alpha, label: "Right 2", kind: .momentary),
+        .init(id: "alpha.sw.master_alt", device: .alpha, label: "ALT", kind: .toggle, defaultOn: "sim/electrical/generator_1_on", defaultOff: "sim/electrical/generator_1_off"),
+        .init(id: "alpha.sw.master_bat", device: .alpha, label: "BAT", kind: .toggle, defaultOn: "sim/electrical/battery_1_on", defaultOff: "sim/electrical/battery_1_off"),
+        .init(id: "alpha.sw.avionics1", device: .alpha, label: "AV BUS 1", kind: .toggle, defaultOn: "sim/systems/avionics_on", defaultOff: "sim/systems/avionics_off"),
+        .init(id: "alpha.sw.avionics2", device: .alpha, label: "AV BUS 2", kind: .toggle),
+        .init(id: "alpha.sw.beacon", device: .alpha, label: "BCN", kind: .toggle, defaultOn: "sim/lights/beacon_lights_on", defaultOff: "sim/lights/beacon_lights_off"),
+        .init(id: "alpha.sw.land", device: .alpha, label: "LAND", kind: .toggle, defaultOn: "sim/lights/landing_lights_on", defaultOff: "sim/lights/landing_lights_off"),
+        .init(id: "alpha.sw.taxi", device: .alpha, label: "TAXI", kind: .toggle, defaultOn: "sim/lights/taxi_lights_on", defaultOff: "sim/lights/taxi_lights_off"),
+        .init(id: "alpha.sw.nav", device: .alpha, label: "NAV", kind: .toggle, defaultOn: "sim/lights/nav_lights_on", defaultOff: "sim/lights/nav_lights_off"),
+        .init(id: "alpha.sw.strobe", device: .alpha, label: "STROBE", kind: .toggle, defaultOn: "sim/lights/strobe_lights_on", defaultOff: "sim/lights/strobe_lights_off"),
+        .init(id: "alpha.mag.off", device: .alpha, label: "OFF", kind: .position, defaultOn: "sim/magnetos/magnetos_off_1"),
+        .init(id: "alpha.mag.right", device: .alpha, label: "R", kind: .position, defaultOn: "sim/magnetos/magnetos_right_1"),
+        .init(id: "alpha.mag.left", device: .alpha, label: "L", kind: .position, defaultOn: "sim/magnetos/magnetos_left_1"),
+        .init(id: "alpha.mag.both", device: .alpha, label: "BOTH", kind: .position, defaultOn: "sim/magnetos/magnetos_both_1"),
+        .init(id: "alpha.mag.start", device: .alpha, label: "START", kind: .momentary, defaultOn: "sim/starters/engage_starter_1"),
+    ]
+
+    // Bravo: autopilot row, selector + encoder, six levers with detents and lever buttons,
+    // flaps lever, trim wheel, gear lever and seven toggle switches.
+    static let bravo: [HardwareControl] = [
+        .init(id: "bravo.ap.hdg", device: .bravo, label: "HDG", kind: .momentary, defaultOn: "sim/autopilot/heading"),
+        .init(id: "bravo.ap.nav", device: .bravo, label: "NAV", kind: .momentary, defaultOn: "sim/autopilot/NAV"),
+        .init(id: "bravo.ap.apr", device: .bravo, label: "APR", kind: .momentary, defaultOn: "sim/autopilot/approach"),
+        .init(id: "bravo.ap.rev", device: .bravo, label: "REV", kind: .momentary, defaultOn: "sim/autopilot/back_course"),
+        .init(id: "bravo.ap.alt", device: .bravo, label: "ALT", kind: .momentary, defaultOn: "sim/autopilot/altitude_hold"),
+        .init(id: "bravo.ap.vs", device: .bravo, label: "VS", kind: .momentary, defaultOn: "sim/autopilot/vertical_speed"),
+        .init(id: "bravo.ap.ias", device: .bravo, label: "IAS", kind: .momentary, defaultOn: "sim/autopilot/level_change"),
+        .init(id: "bravo.ap.master", device: .bravo, label: "AUTOPILOT", kind: .momentary, defaultOn: "sim/autopilot/servos_toggle"),
+        .init(id: "bravo.sel.alt", device: .bravo, label: "ALT", kind: .position),
+        .init(id: "bravo.sel.vs", device: .bravo, label: "VS", kind: .position),
+        .init(id: "bravo.sel.hdg", device: .bravo, label: "HDG", kind: .position),
+        .init(id: "bravo.sel.crs", device: .bravo, label: "CRS", kind: .position),
+        .init(id: "bravo.sel.ias", device: .bravo, label: "IAS", kind: .position),
+        .init(id: "bravo.knob.inc", device: .bravo, label: "Knob +", kind: .momentary, defaultOn: "sim/autopilot/heading_up"),
+        .init(id: "bravo.knob.dec", device: .bravo, label: "Knob −", kind: .momentary, defaultOn: "sim/autopilot/heading_down"),
+        .init(id: "bravo.flaps.down", device: .bravo, label: "Flaps ↓", kind: .momentary, defaultOn: "sim/flight_controls/flaps_down"),
+        .init(id: "bravo.flaps.up", device: .bravo, label: "Flaps ↑", kind: .momentary, defaultOn: "sim/flight_controls/flaps_up"),
+        .init(id: "bravo.trim.down", device: .bravo, label: "Trim fwd", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_down"),
+        .init(id: "bravo.trim.up", device: .bravo, label: "Trim back", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_up"),
+        .init(id: "bravo.gear.up", device: .bravo, label: "Gear UP", kind: .position, defaultOn: "sim/flight_controls/landing_gear_up"),
+        .init(id: "bravo.gear.down", device: .bravo, label: "Gear DN", kind: .position, defaultOn: "sim/flight_controls/landing_gear_down"),
+    ] + (1...6).map { n in
+        HardwareControl(id: "bravo.lever\(n).detent", device: .bravo, label: "L\(n) detent", kind: .momentary, knownBit: 47 + n)
+    } + [
+        .init(id: "bravo.lever1.a", device: .bravo, label: "L1 A", kind: .momentary),
+        .init(id: "bravo.lever2.a", device: .bravo, label: "L2 A", kind: .momentary),
+        .init(id: "bravo.lever2.b", device: .bravo, label: "L2 B", kind: .momentary),
+        .init(id: "bravo.lever3.a", device: .bravo, label: "L3 A", kind: .momentary),
+        .init(id: "bravo.lever3.b", device: .bravo, label: "L3 B", kind: .momentary),
+        .init(id: "bravo.lever4.a", device: .bravo, label: "L4 A", kind: .momentary),
+        .init(id: "bravo.lever4.b", device: .bravo, label: "L4 B", kind: .momentary),
+        .init(id: "bravo.lever5.a", device: .bravo, label: "L5 A", kind: .momentary),
+    ] + zip(1...7, [("beacon", "BCN"), ("landing", "LAND"), ("taxi", "TAXI"), ("nav", "NAV"), ("strobe", "STROBE"), ("pitot", "PITOT"), ("avionics", "AVIONICS")]).map { n, s in
+        let on = s.0 == "pitot" ? "sim/ice/pitot_heat0_on" : s.0 == "avionics" ? "sim/systems/avionics_on" : "sim/lights/\(s.0)_lights_on"
+        return HardwareControl(id: "bravo.sw\(n)", device: .bravo, label: s.1, kind: .toggle, defaultOn: on,
+                               defaultOff: on.replacingOccurrences(of: "_on", with: "_off"), knownBit: 34 + n)
+    }
+}
+
+/// A learned bit plus the X-Plane command(s) for one control.
+struct ControlBinding: Codable, Equatable {
+    var bit: Int?
+    var on: String
+    var off: String
+    var provisional = false
+}
+
+enum ButtonBits {
+    static func isSet(_ payload: [UInt8], _ bit: Int) -> Bool {
+        guard (0..<64).contains(bit), payload.count > 3 + bit / 8 else { return false }
+        return payload[3 + bit / 8] & (1 << UInt8(bit % 8)) != 0
+    }
+    /// Bits that differ between two payloads, lowest first.
+    static func changed(_ a: [UInt8], _ b: [UInt8]) -> [Int] {
+        (0..<64).filter { isSet(a, $0) != isSet(b, $0) }
+    }
+}
+
+/// Watches payloads after "Learn" and picks the first bit that changes from the baseline.
+struct ButtonLearner {
+    let controlID: String
+    let baseline: [UInt8]
+    /// Returns the changed bits once any change. With several, a single newly *set* bit is preferred;
+    /// otherwise the lowest is used and the caller reports the ambiguity.
+    func detect(_ payload: [UInt8]) -> (bit: Int, others: [Int])? {
+        let bits = ButtonBits.changed(baseline, payload)
+        guard let first = bits.first else { return nil }
+        let newlySet = bits.filter { ButtonBits.isSet(payload, $0) }
+        let pick = newlySet.count == 1 ? newlySet[0] : first
+        return (pick, bits.filter { $0 != pick })
+    }
+}
+
+enum ButtonMapExport {
+    /// Renders buttons.txt for the X-Plane plugin from learned bindings.
+    static func render(_ bindings: [String: ControlBinding]) -> String {
+        var lines = ["# Generated by Honeycomb Monitor. Format: <bit> <command> [off command]", ""]
+        for control in ControlCatalog.all {
+            guard let b = bindings[control.id], let bit = b.bit, !b.on.isEmpty, !b.on.contains(" ") else { continue }
+            let tail = control.kind == .toggle && !b.off.isEmpty && !b.off.contains(" ") ? " \(b.off)" : ""
+            lines.append("\(bit) \(b.on)\(tail)   # \(control.device.rawValue) \(control.label)\(b.provisional ? " (provisional)" : "")")
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
+}
