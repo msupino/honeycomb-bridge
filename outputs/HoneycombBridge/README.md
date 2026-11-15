@@ -262,6 +262,23 @@ Validate the UI parser against an existing capture without opening a window or U
 
 Ten unit tests cover the HID mapper, calibration and UI parsing/group isolation, plus the USB reader's hardware-independent GIP/auth self-tests. The actual v1 handshake and isolated group captures supply the hardware evidence; virtual output and simulator behavior remain untested.
 
+## Live control view
+
+Above the activity cards the monitor now draws the controls themselves: Alpha yoke (pitch/roll field plus a rotating wheel), six Bravo levers, and Charlie rudder and toe brakes. Raw decodes measured on the rig are used, and a saved calibration takes precedence:
+
+| Control | Payload field |
+| --- | --- |
+| Alpha roll / pitch | signed 16-bit little-endian at 11 / 13 |
+| Bravo levers 1–6 | 10-bit packed at 17, 19, 21, 23, 25, 27 (`v = byte[o+1] << 2 | byte[o] >> 6`) |
+| Charlie toe brakes (provisional) | 10-bit packed at 29 / 31 |
+| Rudder | shown only from a saved calibration; raw field not yet confirmed |
+
+Replay a capture without hardware:
+
+```sh
+"Honeycomb Monitor.app/Contents/MacOS/honeycomb-monitor" --replay "$PWD/captures/monitor-1794684339-B962E4.ndjson"
+```
+
 ## X-Plane 12 bridge prototype
 
 The updated monitor includes a **Calibrate for X-Plane** screen and an output switch. A native arm64 plugin is built in `HoneycombInput/mac_x64/HoneycombInput.xpl`. It consumes calibrated local input directly, so no virtual HID device or DriverKit entitlement is required. This route will not add normal joystick-device entries to X-Plane's settings.

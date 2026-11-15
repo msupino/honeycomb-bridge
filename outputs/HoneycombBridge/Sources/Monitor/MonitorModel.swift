@@ -10,6 +10,7 @@ final class MonitorModel: ObservableObject {
     @Published var verified = false
     @Published var captureURL: URL?
     @Published var now = Date()
+    @Published var controls = ControlsSnapshot()
     @Published var calibrations: [AxisCalibration] = []
     @Published private(set) var simulatorEnabled = false
     @Published var simulatorStatus = "X-Plane output off"
@@ -141,7 +142,7 @@ final class MonitorModel: ObservableObject {
     }
 
     func stop() {
-        guard let process else { return }
+        guard let process else { running = false; status = "Ready to connect"; return }
         simulator.setSourceRunning(false); setSimulatorEnabled(false)
         stopping = true; status = "Closing the USB connection…"
         if process.isRunning { process.interrupt() }
@@ -170,6 +171,23 @@ final class MonitorModel: ObservableObject {
 
     func flush() {
         state.tick(); input = state; now = Date()
+        let snapshot = state.lastPayload.map { ControlsSnapshot(payload: $0, calibrations: calibrations) } ?? ControlsSnapshot()
+        if snapshot != controls { controls = snapshot }
+    }
+
+    /// Plays a saved capture through the live display (no USB, no simulator output). Loops until stopped.
+    func replay(_ url: URL) {
+        guard let data = try? Data(contentsOf: url) else { error = "Could not read \(url.lastPathComponent)"; return }
+        let payloads = data.split(separator: 10).compactMap { InputState.payload(from: Data($0)) }
+        guard !payloads.isEmpty else { error = "No input packets in \(url.lastPathComponent)"; return }
+        state = InputState(); running = true; status = "Replaying \(url.lastPathComponent)"
+        var index = 0
+        Timer.scheduledTimer(withTimeInterval: 0.004, repeats: true) { [weak self] timer in
+            Task { @MainActor [weak self] in
+                guard let self, self.running, self.process == nil else { timer.invalidate(); return }
+                self.state.accept(payloads[index]); index = (index + 1) % payloads.count
+            }
+        }
     }
 
     func showCapture() {

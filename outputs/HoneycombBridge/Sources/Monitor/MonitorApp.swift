@@ -23,11 +23,11 @@ struct MonitorApp: App {
     var body: some Scene {
         Window("Honeycomb Monitor", id: "monitor") {
             MonitorView(model: model)
-                .frame(minWidth: 980, minHeight: 700)
+                .frame(minWidth: 1040, minHeight: 950)
                 .preferredColorScheme(.dark)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in model.stop() }
         }
-        .defaultSize(width: 1160, height: 760)
+        .defaultSize(width: 1180, height: 1000)
         .windowStyle(.hiddenTitleBar)
     }
 }
@@ -68,6 +68,7 @@ struct MonitorView: View {
                 Spacer()
                 Text(model.simulatorStatus).font(.system(size: 11)).foregroundStyle(.secondary)
             }
+            ControlsPanel(controls: model.controls, connected: model.running && model.input.packets > 0)
             HStack(alignment: .top, spacing: 16) {
                 ForEach(model.input.groups) { group in
                     MovementCard(group: group, now: model.now, connected: model.running && model.input.packets > 0)
@@ -92,7 +93,12 @@ struct MonitorView: View {
         .sheet(isPresented: $showCalibration) { CalibrationView(model: model) }
         .onReceive(timer) { _ in model.flush() }
         .onDisappear { model.stop() }
-        .onAppear { NSApp.setActivationPolicy(.regular); NSApp.activate(ignoringOtherApps: true) }
+        .onAppear {
+            NSApp.setActivationPolicy(.regular); NSApp.activate(ignoringOtherApps: true)
+            if let i = CommandLine.arguments.firstIndex(of: "--replay"), i + 1 < CommandLine.arguments.count {
+                model.replay(URL(fileURLWithPath: CommandLine.arguments[i + 1]))
+            }
+        }
     }
 }
 
