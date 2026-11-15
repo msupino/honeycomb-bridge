@@ -160,6 +160,10 @@ struct AlphaLayout: View {
                             .frame(height: 190)
                         Text(String(format: "Roll %+.0f%%   Pitch %+.0f%%", model.controls.roll * 100, model.controls.pitch * 100))
                             .font(.system(size: 11, design: .monospaced)).monospacedDigit().foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Text("Roll").font(.system(size: 10)).foregroundStyle(.secondary); ReverseToggle(model: model, axis: .roll)
+                            Text("Pitch").font(.system(size: 10)).foregroundStyle(.secondary); ReverseToggle(model: model, axis: .pitch)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     // Right grip
@@ -357,11 +361,11 @@ struct AxisLearnRow: View {
             if model.learningAxis == axis {
                 Button("Finish") { model.finishLearning() }.buttonStyle(.borderedProminent)
             } else if model.candidate?.axis == axis {
-                Button("Reverse") { model.reverse(axis) }
+                ReverseToggle(model: model, axis: axis)
                 Button("Save") { model.saveCandidate() }.buttonStyle(.borderedProminent)
             } else {
                 Button(saved == nil ? "Learn" : "Relearn") { model.beginLearning(axis) }.disabled(model.learningAxis != nil)
-                if saved != nil { Button("Reverse") { model.reverse(axis) }; Button("Forget", role: .destructive) { model.remove(axis) } }
+                if saved != nil { ReverseToggle(model: model, axis: axis); Button("Forget", role: .destructive) { model.remove(axis) } }
             }
         }
     }

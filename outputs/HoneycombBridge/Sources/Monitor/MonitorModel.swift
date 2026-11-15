@@ -77,6 +77,11 @@ final class MonitorModel: ObservableObject {
         if candidate?.axis == axis { candidate?.inverted.toggle() }
         else if let index = calibrations.firstIndex(where: { $0.axis == axis }) { calibrations[index].inverted.toggle(); persist() }
     }
+    /// Current direction of the candidate (while learning) or the saved mapping.
+    func isReversed(_ axis: FlightAxis) -> Bool {
+        candidate?.axis == axis ? candidate!.inverted : calibrations.first { $0.axis == axis }?.inverted ?? false
+    }
+    func setReversed(_ axis: FlightAxis, _ on: Bool) { if isReversed(axis) != on { reverse(axis) } }
     func remove(_ axis: FlightAxis) { calibrations.removeAll { $0.axis == axis }; persist() }
     /// Button/switch bit numbers currently set (payload bytes 3...10), as used in the plugin's buttons.txt.
     func activeButtonBits() -> [Int] {

@@ -19,7 +19,7 @@ struct CalibrationView: View {
                                     Text("\(axis.group) · \(saved == nil ? "Not calibrated" : "Saved mapping")").font(.system(size: 10)).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                if saved != nil { Button("Reverse") { model.reverse(axis) }; Button("Clear") { model.remove(axis) } }
+                                if saved != nil { ReverseToggle(model: model, axis: axis); Button("Clear") { model.remove(axis) } }
                                 if model.learningAxis == axis { Button("Finish range") { model.finishLearning() }.buttonStyle(.borderedProminent) }
                                 else { Button(saved == nil ? "Learn" : "Relearn") { model.beginLearning(axis) }.disabled(model.learningAxis != nil) }
                             }
@@ -30,7 +30,7 @@ struct CalibrationView: View {
                                     HStack {
                                         Text("Preview · confirm this follows the intended control").font(.system(size: 10)).foregroundStyle(.secondary)
                                         Spacer()
-                                        Button("Reverse") { model.reverse(axis) }
+                                        ReverseToggle(model: model, axis: axis)
                                         Button("Save mapping") { model.saveCandidate() }.buttonStyle(.borderedProminent)
                                     }
                                 }
@@ -59,5 +59,16 @@ struct CalibrationView: View {
             }
         }
         .padding(24).frame(width: 730, height: 690)
+    }
+}
+
+/// Shows and sets an axis direction; saved immediately for saved mappings.
+struct ReverseToggle: View {
+    @ObservedObject var model: MonitorModel
+    let axis: FlightAxis
+    var body: some View {
+        Toggle("Reversed", isOn: Binding(get: { model.isReversed(axis) }, set: { model.setReversed(axis, $0) }))
+            .toggleStyle(.button).tint(.orange)
+            .help(model.isReversed(axis) ? "This axis is reversed (saved)" : "Normal direction")
     }
 }
