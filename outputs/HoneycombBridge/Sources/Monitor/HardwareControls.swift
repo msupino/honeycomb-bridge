@@ -82,6 +82,18 @@ enum ControlCatalog {
         .init(id: "bravo.sel.ias", device: .bravo, label: "IAS", kind: .position),
         .init(id: "bravo.knob.inc", device: .bravo, label: "Knob +", kind: .momentary, defaultOn: "sim/autopilot/heading_up"),
         .init(id: "bravo.knob.dec", device: .bravo, label: "Knob −", kind: .momentary, defaultOn: "sim/autopilot/heading_down"),
+        // Knob routing targets (derived bits): the Bravo selector reports nothing in Xbox mode, so the knob
+        // adjusts whatever the last autopilot button pressed selects. Byte 6 (bits 24–31) and bits 54/55 are unused by the rig.
+        .init(id: "bravo.knob.hdg.inc", device: .bravo, label: "HDG +", kind: .momentary, defaultOn: "sim/autopilot/heading_up", virtualBit: 24),
+        .init(id: "bravo.knob.hdg.dec", device: .bravo, label: "HDG −", kind: .momentary, defaultOn: "sim/autopilot/heading_down", virtualBit: 25),
+        .init(id: "bravo.knob.alt.inc", device: .bravo, label: "ALT +", kind: .momentary, defaultOn: "sim/autopilot/altitude_up", virtualBit: 26),
+        .init(id: "bravo.knob.alt.dec", device: .bravo, label: "ALT −", kind: .momentary, defaultOn: "sim/autopilot/altitude_down", virtualBit: 27),
+        .init(id: "bravo.knob.vs.inc", device: .bravo, label: "VS +", kind: .momentary, defaultOn: "sim/autopilot/vertical_speed_up", virtualBit: 28),
+        .init(id: "bravo.knob.vs.dec", device: .bravo, label: "VS −", kind: .momentary, defaultOn: "sim/autopilot/vertical_speed_down", virtualBit: 29),
+        .init(id: "bravo.knob.ias.inc", device: .bravo, label: "IAS +", kind: .momentary, defaultOn: "sim/autopilot/airspeed_up", virtualBit: 30),
+        .init(id: "bravo.knob.ias.dec", device: .bravo, label: "IAS −", kind: .momentary, defaultOn: "sim/autopilot/airspeed_down", virtualBit: 31),
+        .init(id: "bravo.knob.crs.inc", device: .bravo, label: "CRS +", kind: .momentary, defaultOn: "sim/radios/obs_HSI_up", virtualBit: 54),
+        .init(id: "bravo.knob.crs.dec", device: .bravo, label: "CRS −", kind: .momentary, defaultOn: "sim/radios/obs_HSI_down", virtualBit: 55),
         .init(id: "bravo.flaps.down", device: .bravo, label: "Flaps ↓", kind: .momentary, defaultOn: "sim/flight_controls/flaps_down"),
         .init(id: "bravo.flaps.up", device: .bravo, label: "Flaps ↑", kind: .momentary, defaultOn: "sim/flight_controls/flaps_up"),
         .init(id: "bravo.trim.down", device: .bravo, label: "Trim fwd", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_down"),
@@ -149,11 +161,41 @@ enum VirtualBits {
     static func apply(_ payload: [UInt8], _ bindings: [String: ControlBinding]) -> [UInt8] {
         var q = payload
         for c in ControlCatalog.all {
-            guard let vb = c.virtualBit, q.count > 3 + vb / 8 else { continue }
+            guard let vb = c.virtualBit, !c.virtualOf.isEmpty, q.count > 3 + vb / 8 else { continue }
             let bits = c.virtualOf.compactMap { bindings[$0]?.bit }
             let mask = UInt8(1 << (vb % 8))
             if bits.count == c.virtualOf.count && !bits.contains(where: { ButtonBits.isSet(payload, $0) }) { q[3 + vb / 8] |= mask }
             else { q[3 + vb / 8] &= ~mask }
+        }
+        return q
+    }
+}
+
+/// Routes Bravo knob ticks to the target chosen by the last autopilot button pressed.
+enum KnobTarget: String, CaseIterable { case hdg = "HDG", alt = "ALT", vs = "VS", ias = "IAS", crs = "CRS"
+    /// Autopilot button that selects this target.
+    var button: String { ["bravo.ap.hdg", "bravo.ap.alt", "bravo.ap.vs", "bravo.ap.ias", "bravo.ap.nav"][KnobTarget.allCases.firstIndex(of: self)!] }
+    var key: String { rawValue.lowercased() }
+}
+
+struct KnobRouter {
+    private(set) var target: KnobTarget = .hdg
+    private var previous: [UInt8]?
+    /// Updates the target from rising AP-button edges, then moves knob bits (bravo.knob.inc/dec) onto the
+    /// target's derived bits so only the routed command fires.
+    mutating func apply(_ payload: [UInt8], _ bindings: [String: ControlBinding]) -> [UInt8] {
+        var q = payload
+        for t in KnobTarget.allCases {
+            guard let bit = bindings[t.button]?.bit else { continue }
+            if ButtonBits.isSet(payload, bit) && !(previous.map { ButtonBits.isSet($0, bit) } ?? false) { target = t }
+        }
+        previous = payload
+        func set(_ bit: Int, _ on: Bool) { let i = ButtonBits.byteIndex(bit), m = UInt8(1 << (bit % 8)); if q.count > i { q[i] = on ? q[i] | m : q[i] & ~m } }
+        for (dir, id) in [("inc", "bravo.knob.inc"), ("dec", "bravo.knob.dec")] {
+            guard let knob = bindings[id]?.bit, let routed = ControlCatalog.control("bravo.knob.\(target.key).\(dir)")?.virtualBit else { continue }
+            let on = ButtonBits.isSet(payload, knob)
+            for t in KnobTarget.allCases { if let vb = ControlCatalog.control("bravo.knob.\(t.key).\(dir)")?.virtualBit { set(vb, false) } }
+            set(routed, on); set(knob, false)
         }
         return q
     }

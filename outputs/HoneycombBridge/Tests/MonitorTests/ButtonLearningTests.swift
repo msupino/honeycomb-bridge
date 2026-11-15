@@ -81,3 +81,25 @@ final class GroupLearningTests: XCTestCase {
         XCTAssertNil(short.assignment())
     }
 }
+
+final class KnobRouterTests: XCTestCase {
+    private func payload(_ bits: [Int]) -> [UInt8] {
+        var p = [UInt8](repeating: 0, count: 43)
+        for b in bits { p[ButtonBits.byteIndex(b)] |= 1 << UInt8(b % 8) }
+        return p
+    }
+    func testKnobFollowsLastAutopilotButton() {
+        let b: [String: ControlBinding] = ["bravo.ap.hdg": .init(bit: 17, on: "", off: ""), "bravo.ap.alt": .init(bit: 21, on: "", off: ""),
+                                           "bravo.ap.vs": .init(bit: 22, on: "", off: ""), "bravo.ap.nav": .init(bit: 18, on: "", off: ""),
+                                           "bravo.knob.inc": .init(bit: 33, on: "", off: ""), "bravo.knob.dec": .init(bit: 32, on: "", off: "")]
+        var r = KnobRouter()
+        var out = r.apply(payload([33]), b)                         // default HDG
+        XCTAssertTrue(ButtonBits.isSet(out, 24)); XCTAssertFalse(ButtonBits.isSet(out, 33))
+        _ = r.apply(payload([21]), b); _ = r.apply(payload([]), b)  // press ALT
+        XCTAssertEqual(r.target, .alt)
+        out = r.apply(payload([32]), b)
+        XCTAssertTrue(ButtonBits.isSet(out, 27)); XCTAssertFalse(ButtonBits.isSet(out, 25)); XCTAssertFalse(ButtonBits.isSet(out, 32))
+        _ = r.apply(payload([18]), b); XCTAssertEqual(r.target, .crs)  // NAV → course
+        out = r.apply(payload([18, 33]), b); XCTAssertTrue(ButtonBits.isSet(out, 54))
+    }
+}

@@ -12,6 +12,8 @@ final class MonitorModel: ObservableObject {
     @Published var now = Date()
     @Published var controls = ControlsSnapshot()
     @Published var charlieRaw = (0, 0)
+    @Published var knobTarget: KnobTarget = .hdg
+    private var knobRouter = KnobRouter()
     @Published var charlieMode: CharlieMode = CharlieMode(rawValue: UserDefaults.standard.string(forKey: "charlieMode") ?? "") ?? .rudder {
         didSet { UserDefaults.standard.set(charlieMode.rawValue, forKey: "charlieMode"); updateSimulator() }
     }
@@ -94,6 +96,12 @@ final class MonitorModel: ObservableObject {
     private func saveBindings() {
         do { try JSONEncoder().encode(bindings).write(to: bindingsURL, options: .atomic) }
         catch { buttonMessage = "Could not save controls: \(error.localizedDescription)" }
+    }
+    /// Derived bits (magneto OFF) plus knob routing, as sent to X-Plane.
+    private func route(_ payload: [UInt8]) -> [UInt8] {
+        let q = knobRouter.apply(VirtualBits.apply(payload, bindings), bindings)
+        if knobRouter.target != knobTarget { knobTarget = knobRouter.target }
+        return q
     }
     func isActive(_ id: String) -> Bool {
         guard let bit = bindings[id]?.bit, let payload = state.lastPayload else { return false }
@@ -265,7 +273,7 @@ final class MonitorModel: ObservableObject {
         while let newline = buffer.firstIndex(of: 10) {
             let line = Data(buffer[..<newline]); buffer.removeSubrange(...newline)
             if let payload = InputState.payload(from: line) {
-                state.accept(payload); simulator.update(VirtualBits.apply(payload, bindings)); learner?.accept(payload); learnButton(payload); status = "Receiving Xbox input"
+                state.accept(payload); simulator.update(route(payload)); learner?.accept(payload); learnButton(payload); status = "Receiving Xbox input"
             } else if let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] {
                 switch event["event"] as? String {
                 case "gip_auth_verified": verified = true; status = "Session verified · waiting for input"

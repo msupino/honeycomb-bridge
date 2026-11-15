@@ -129,3 +129,7 @@ From FlightGear's Honeycomb Alpha bindings ([fgdata `Input/Event/HoneycombAerona
 | 4 / 5 | Left outer rocker down / up | 30–34 | Magneto OFF, R, L, BOTH, START |
 
 The hat (left grip) is reported as axes in PC mode. Xbox-mode bits for the grip are learned in Honeycomb Monitor (*Learn all → Grip buttons*).
+
+## Bravo selector and knob (Xbox mode)
+
+The selector (ALT/VS/HDG/CRS/IAS) reports **nothing** in Xbox mode: turning it changes no byte of the input report. The knob reports bits 32 (−) and 33 (+). Honeycomb Monitor therefore routes the knob to the target chosen by the **last autopilot button pressed**: HDG → heading, ALT → altitude, VS → vertical speed, IAS → airspeed, NAV → course (HSI OBS). Routed ticks are sent on derived bits 24–31 (HDG/ALT/VS/IAS +/−, byte 6 is unused by the rig) and 54/55 (CRS +/−), each bound to its X-Plane command in the exported `buttons.txt`. The Bravo tab shows the current target ("Knob → HDG").

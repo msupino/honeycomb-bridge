@@ -224,7 +224,7 @@ struct BravoLayout: View {
                         ControlChip(model: model, id: "bravo.ap.master", width: 84, tint: .orange)
                     }
                 }
-                Plate(title: "Selector · knob") {
+                Plate(title: "Knob → \(model.knobTarget.rawValue)") {
                     HStack(spacing: 12) {
                         VStack(spacing: 4) {
                             ForEach(["bravo.sel.alt", "bravo.sel.vs", "bravo.sel.hdg", "bravo.sel.crs", "bravo.sel.ias"], id: \.self) {
