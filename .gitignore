@@ -1,0 +1,7 @@
+.DS_Store
+.build/
+.swiftpm/
+# The built app bundle is shipped as outputs/Honeycomb-Monitor-macOS-arm64.zip
+*.app/
+# Saved copy of an X-Plane website page (third-party content); see docs for the live link
+work/datarefs-page.html

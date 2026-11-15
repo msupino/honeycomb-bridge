@@ -1,0 +1,12 @@
+{"event":"usb_status","operation":"find_devices","status":0,"status_hex":"0x00000000","time":1794681876.718277}
+{"event":"usb_status","operation":"device_plugin","status":0,"status_hex":"0x00000000","time":1794681876.7261319}
+{"event":"usb_status","operation":"device_interface","status":0,"status_hex":"0x00000000","time":1794681876.726197}
+{"event":"usb_status","operation":"configuration_count","status":0,"status_hex":"0x00000000","time":1794681876.7262201}
+{"event":"usb_status","operation":"get_configuration","status":0,"status_hex":"0x00000000","time":1794681876.726393}
+{"event":"prior_configuration","time":1794681876.7264152,"value":0}
+{"event":"usb_status","operation":"device_open","status":0,"status_hex":"0x00000000","time":1794681876.726439}
+{"event":"usb_status","operation":"xone_usb_reset","status":0,"status_hex":"0x00000000","time":1794681876.726459}
+{"event":"usb_status","operation":"set_configuration","status":0,"status_hex":"0x00000000","time":1794681876.7267971}
+{"event":"usb_status","operation":"xone_audio_interface_alt_zero","status":-536870195,"status_hex":"0xe00002cd","time":1794681876.7268291}
+{"event":"usb_status","operation":"restore_configuration","status":0,"status_hex":"0x00000000","time":1794681876.72719}
+{"event":"usb_status","operation":"device_close","status":0,"status_hex":"0x00000000","time":1794681876.7272201}

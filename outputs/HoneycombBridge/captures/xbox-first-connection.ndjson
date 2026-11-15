@@ -1,0 +1,4 @@
+{"event":"inventory","time":1794588494.8853951,"usb_device_count":1}
+{"device":{"bcdDevice":278,"bDeviceClass":255,"bDeviceProtocol":208,"bDeviceSubClass":71,"idProduct":6404,"idVendor":10571,"interfaces":[],"locationID":34799616,"name":"Alpha Flight Controls Yoke & Switch Panel XPC","registry_id":4337066611,"USB Product Name":"Alpha Flight Controls Yoke & Switch Panel XPC","USB Vendor Name":"Honeycomb Aeronautical"},"event":"usb_added","time":1794588494.890183}
+{"event":"hid_manager_open","status":0,"time":1794588494.890363}
+{"event":"watch_started","note":"No vendor USB requests or Xbox initialization are sent. No HID means no HID input capture; this is not a USB bus sniffer.","time":1794588494.8903809}

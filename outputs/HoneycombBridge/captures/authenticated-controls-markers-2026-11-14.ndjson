@@ -1,0 +1,4 @@
+{"time": 1794682924.3511941, "event": "phase_note", "phase": "alpha_only_requested"}
+{"time": 1794682937.6045198, "event": "phase_note", "phase": "alpha_finished_bravo_next", "input_packets": 613}
+{"time": 1794682972.8735292, "event": "phase_note", "phase": "bravo_finished_charlie_next", "input_packets": 1333}
+{"time": 1794683004.5910091, "event": "phase_note", "phase": "charlie_finished", "input_packets": 1673}

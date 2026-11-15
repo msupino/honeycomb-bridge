@@ -1,0 +1,4 @@
+{"event":"value","device":{"registry_id":123},"cookie":7,"usage_page":1,"usage":48,"logical_min":0,"logical_max":100,"value":0}
+{"event":"value","device":{"registry_id":123},"cookie":7,"usage_page":1,"usage":48,"logical_min":0,"logical_max":100,"value":100}
+{"event":"value","device":{"registry_id":123},"cookie":8,"usage_page":9,"usage":1,"logical_min":0,"logical_max":1,"value":1}
+{"event":"hid_removed","device":{"registry_id":123}}

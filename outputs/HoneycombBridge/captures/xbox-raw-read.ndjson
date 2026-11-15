@@ -1,0 +1,18 @@
+{"event":"usb_status","operation":"find_devices","status":0,"status_hex":"0x00000000","time":1794589053.0733008}
+{"event":"usb_status","operation":"device_plugin","status":0,"status_hex":"0x00000000","time":1794589053.0842509}
+{"event":"usb_status","operation":"device_interface","status":0,"status_hex":"0x00000000","time":1794589053.084331}
+{"event":"usb_status","operation":"configuration_count","status":0,"status_hex":"0x00000000","time":1794589053.084352}
+{"event":"usb_status","operation":"get_configuration","status":0,"status_hex":"0x00000000","time":1794589053.0846119}
+{"event":"prior_configuration","time":1794589053.0846329,"value":0}
+{"event":"usb_status","operation":"device_open","status":0,"status_hex":"0x00000000","time":1794589053.084666}
+{"event":"usb_status","operation":"set_configuration","status":0,"status_hex":"0x00000000","time":1794589053.085161}
+{"event":"usb_status","operation":"find_interfaces","status":0,"status_hex":"0x00000000","time":1794589053.0928731}
+{"event":"usb_status","operation":"interface_open","status":0,"status_hex":"0x00000000","time":1794589053.0957479}
+{"event":"usb_status","operation":"endpoint_count","status":0,"status_hex":"0x00000000","time":1794589053.0957789}
+{"event":"usb_status","operation":"async_source","status":0,"status_hex":"0x00000000","time":1794589053.1038399}
+{"endpoint":129,"event":"raw_read_started","interface":0,"note":"No vendor-specific or Xbox initialization packets sent","packet_size":64,"pid":6404,"seconds":30,"time":1794589053.1039019,"vid":10571}
+{"event":"usb_status","operation":"queue_read","status":0,"status_hex":"0x00000000","time":1794589053.1039701}
+{"event":"raw_read_finished","packets":0,"time":1794589083.2074151}
+{"event":"usb_status","operation":"abort_read","status":0,"status_hex":"0x00000000","time":1794589083.207746}
+{"event":"usb_status","operation":"restore_configuration","status":0,"status_hex":"0x00000000","time":1794589083.216326}
+{"event":"usb_status","operation":"device_close","status":0,"status_hex":"0x00000000","time":1794589083.216399}
