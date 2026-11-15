@@ -95,6 +95,7 @@ final class MonitorModel: ObservableObject {
     }
     func beginButtonLearning(_ id: String) {
         guard running, let baseline = state.lastPayload, let control = ControlCatalog.control(id) else { buttonMessage = "Connect (or replay a capture) before learning."; return }
+        if control.virtualBit != nil { buttonMessage = "\(control.label) has no hardware bit; it is derived (bit \(control.virtualBit!)) when no other magneto position is set. Learn R, L, BOTH, START instead."; return }
         selectedControl = id; learningControl = id; buttonLearner = ButtonLearner(controlID: id, baseline: baseline)
         buttonMessage = control.kind == .toggle ? "Flip \(control.label) once." : control.kind == .position ? "Move to \(control.label)." : "Press \(control.label) once."
     }

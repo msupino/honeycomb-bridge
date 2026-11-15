@@ -385,7 +385,7 @@ struct ControlInspector: View {
                 if model.learningControl == id {
                     Button("Cancel") { model.cancelButtonLearning() }
                 } else {
-                    Button(binding?.bit == nil ? "Learn" : "Relearn") { model.beginButtonLearning(id) }.buttonStyle(.borderedProminent)
+                    Button(binding?.bit == nil ? "Learn" : "Relearn") { model.beginButtonLearning(id) }.buttonStyle(.borderedProminent).disabled(control.virtualBit != nil)
                 }
                 TextField("X-Plane command", text: Binding(get: { binding?.on ?? "" }, set: { model.setCommand(id, on: $0) }))
                     .textFieldStyle(.roundedBorder).font(.system(size: 11, design: .monospaced))
@@ -394,7 +394,7 @@ struct ControlInspector: View {
                         .textFieldStyle(.roundedBorder).font(.system(size: 11, design: .monospaced))
                     Button("Swap") { model.swapCommands(id) }
                 }
-                Button("Clear") { model.clearBinding(id) }.disabled(binding?.bit == nil)
+                Button("Clear") { model.clearBinding(id) }.disabled(binding?.bit == nil || control.virtualBit != nil)
             } else {
                 Text("Click a control to learn its bit and set its X-Plane command. Dashed = not learned · yellow dot = provisional from captures.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
