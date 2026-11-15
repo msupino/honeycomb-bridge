@@ -27,21 +27,26 @@ enum ControlCatalog {
     static let all: [HardwareControl] = alpha + bravo
     static func control(_ id: String) -> HardwareControl? { all.first { $0.id == id } }
 
-    // Alpha XPC: hat + 2 buttons on the left grip, 2 rockers + 2 buttons on the right grip,
-    // 9 master rocker switches and the 5-position magneto key on the base.
+    // Alpha XPC (layout per FlightGear's Honeycomb Alpha bindings): left grip = trigger, white top button,
+    // hat, outer and inner up/down rockers; right grip = white and red top buttons, top and bottom
+    // in/out rockers. Base: 9 two-position switches and the 5-position magneto key.
     static let alpha: [HardwareControl] = [
         .init(id: "alpha.hat.up", device: .alpha, label: "Hat ↑", kind: .momentary, defaultOn: "sim/general/hat_switch_up", knownBit: 72),
         .init(id: "alpha.hat.down", device: .alpha, label: "Hat ↓", kind: .momentary, defaultOn: "sim/general/hat_switch_down", knownBit: 73),
         .init(id: "alpha.hat.left", device: .alpha, label: "Hat ←", kind: .momentary, defaultOn: "sim/general/hat_switch_left", knownBit: 74),
         .init(id: "alpha.hat.right", device: .alpha, label: "Hat →", kind: .momentary, defaultOn: "sim/general/hat_switch_right", knownBit: 75),
-        .init(id: "alpha.left.red", device: .alpha, label: "Left red", kind: .momentary, defaultOn: "sim/autopilot/servos_off_any"),
-        .init(id: "alpha.left.white", device: .alpha, label: "Left white", kind: .momentary),
-        .init(id: "alpha.right.rocker1.up", device: .alpha, label: "Trim ↑", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_down"),
-        .init(id: "alpha.right.rocker1.down", device: .alpha, label: "Trim ↓", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_up"),
-        .init(id: "alpha.right.rocker2.up", device: .alpha, label: "Rocker 2 ↑", kind: .momentary),
-        .init(id: "alpha.right.rocker2.down", device: .alpha, label: "Rocker 2 ↓", kind: .momentary),
-        .init(id: "alpha.right.button1", device: .alpha, label: "Right 1", kind: .momentary),
-        .init(id: "alpha.right.button2", device: .alpha, label: "Right 2", kind: .momentary),
+        .init(id: "alpha.left.trigger", device: .alpha, label: "Trigger", kind: .momentary, defaultOn: "sim/autopilot/servos_off_any"),
+        .init(id: "alpha.left.white", device: .alpha, label: "L white", kind: .momentary),
+        .init(id: "alpha.left.outer.up", device: .alpha, label: "Outer ↑", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_down"),
+        .init(id: "alpha.left.outer.down", device: .alpha, label: "Outer ↓", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_up"),
+        .init(id: "alpha.left.inner.up", device: .alpha, label: "Inner ↑", kind: .momentary, defaultOn: "sim/general/zoom_in"),
+        .init(id: "alpha.left.inner.down", device: .alpha, label: "Inner ↓", kind: .momentary, defaultOn: "sim/general/zoom_out"),
+        .init(id: "alpha.right.white", device: .alpha, label: "R white", kind: .momentary),
+        .init(id: "alpha.right.red", device: .alpha, label: "R red", kind: .momentary),
+        .init(id: "alpha.right.top.in", device: .alpha, label: "Top ◀ in", kind: .momentary, defaultOn: "sim/flight_controls/aileron_trim_left"),
+        .init(id: "alpha.right.top.out", device: .alpha, label: "Top out ▶", kind: .momentary, defaultOn: "sim/flight_controls/aileron_trim_right"),
+        .init(id: "alpha.right.bottom.in", device: .alpha, label: "Bottom ◀ in", kind: .momentary, defaultOn: "sim/flight_controls/rudder_trim_left"),
+        .init(id: "alpha.right.bottom.out", device: .alpha, label: "Bottom out ▶", kind: .momentary, defaultOn: "sim/flight_controls/rudder_trim_right"),
         .init(id: "alpha.sw.master_alt", device: .alpha, label: "ALT", kind: .toggle, defaultOn: "sim/electrical/generator_1_on", defaultOff: "sim/electrical/generator_1_off"),
         .init(id: "alpha.sw.master_bat", device: .alpha, label: "BAT", kind: .toggle, defaultOn: "sim/electrical/battery_1_on", defaultOff: "sim/electrical/battery_1_off"),
         .init(id: "alpha.sw.avionics1", device: .alpha, label: "AV BUS 1", kind: .toggle, defaultOn: "sim/systems/avionics_on", defaultOff: "sim/systems/avionics_off"),
@@ -189,8 +194,9 @@ struct ControlGroup: Identifiable {
               controls: ["alpha.sw.master_alt", "alpha.sw.master_bat", "alpha.sw.avionics1", "alpha.sw.avionics2", "alpha.sw.beacon", "alpha.sw.land", "alpha.sw.taxi", "alpha.sw.nav", "alpha.sw.strobe"],
               instruction: "Start with all rockers OFF. Flip each one ON, left to right (ALT, BAT, AV 1, AV 2, BCN, LAND, TAXI, NAV, STROBE). Then Finish."),
         .init(id: "alpha.grips", title: "Grip buttons", device: .alpha,
-              controls: ["alpha.left.red", "alpha.left.white", "alpha.right.rocker1.up", "alpha.right.rocker1.down", "alpha.right.rocker2.up", "alpha.right.rocker2.down", "alpha.right.button1", "alpha.right.button2"],
-              instruction: "Press once each, in order: left red, left white, trim up, trim down, rocker 2 up, rocker 2 down, right 1, right 2. Then Finish."),
+              controls: ["alpha.left.trigger", "alpha.left.white", "alpha.left.outer.up", "alpha.left.outer.down", "alpha.left.inner.up", "alpha.left.inner.down",
+                         "alpha.right.white", "alpha.right.red", "alpha.right.top.in", "alpha.right.top.out", "alpha.right.bottom.in", "alpha.right.bottom.out"],
+              instruction: "Press once each, in order — left grip: trigger, white, outer rocker up, outer down, inner up, inner down; right grip: white, red, top rocker in, top out, bottom in, bottom out. Then Finish."),
         .init(id: "bravo.ap", title: "Autopilot row", device: .bravo,
               controls: ["bravo.ap.hdg", "bravo.ap.nav", "bravo.ap.apr", "bravo.ap.rev", "bravo.ap.alt", "bravo.ap.vs", "bravo.ap.ias", "bravo.ap.master"],
               instruction: "Press each autopilot button once, left to right: HDG, NAV, APR, REV, ALT, VS, IAS, AUTOPILOT. Then Finish."),

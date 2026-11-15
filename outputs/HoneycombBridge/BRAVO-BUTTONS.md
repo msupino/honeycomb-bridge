@@ -115,3 +115,17 @@ The Hub reports the Charlie pedals as two one-way 10-bit extra axes: field 29/30
 ## Alpha yoke buttons (bytes 0–2)
 
 The Alpha grip buttons and hat are not FlightStick *extra* buttons: they report in the navigation/fire bytes 0–2, which the app now exposes as bits 64–87 (bit `64 + 8·k + j` = payload byte `k`, bit `j`). Seen live: byte 1 bits 0–3 change like a d-pad (provisional hat ↑ 72, ↓ 73, ← 74, → 75), byte 0 bits 5 and 7 and byte 1 bit 4 also change. Learn the grip with *Learn all → Grip buttons* and *Hat*.
+
+## Alpha grip layout (reference)
+
+From FlightGear's Honeycomb Alpha bindings ([fgdata `Input/Event/HoneycombAeronautical/Honeycomb-Aeronautical-Alpha-Flight-Controls.xml`](https://github.com/SaeedGhazi/https-gitlab.com-ssqatc-fgdata/blob/master/Input/Event/HoneycombAeronautical/Honeycomb-Aeronautical-Alpha-Flight-Controls.xml), PC-mode, 0-based):
+
+| PC btn | Control | PC btn | Control |
+| --- | --- | --- | --- |
+| 0 | Left grip trigger (white) | 6 / 7 | Left inner rocker down / up |
+| 1 | Left grip white top button | 8 / 9 | Right top rocker inward / outward |
+| 2 | Right grip white top button | 10 / 11 | Right bottom rocker inward / outward |
+| 3 | Right grip red top button | 12–29 | Base switches ALT, BAT, AV1, AV2, BCN, LAND, TAXI, NAV, STROBE (up/down pairs) |
+| 4 / 5 | Left outer rocker down / up | 30–34 | Magneto OFF, R, L, BOTH, START |
+
+The hat (left grip) is reported as axes in PC mode. Xbox-mode bits for the grip are learned in Honeycomb Monitor (*Learn all → Grip buttons*).

@@ -134,8 +134,20 @@ struct AlphaLayout: View {
                         }
                         ControlChip(model: model, id: "alpha.hat.down", label: "▼", width: 32, round: true)
                         HStack(spacing: 8) {
-                            ControlChip(model: model, id: "alpha.left.red", label: "RED", width: 50, tint: .red, round: true)
+                            ControlChip(model: model, id: "alpha.left.trigger", label: "TRIGGER", width: 60, round: true)
                             ControlChip(model: model, id: "alpha.left.white", label: "WHITE", width: 50, round: true)
+                        }
+                        HStack(spacing: 10) {
+                            VStack(spacing: 4) {
+                                ControlChip(model: model, id: "alpha.left.outer.up", label: "▲", width: 34)
+                                ControlChip(model: model, id: "alpha.left.outer.down", label: "▼", width: 34)
+                                Text("OUTER").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                            }
+                            VStack(spacing: 4) {
+                                ControlChip(model: model, id: "alpha.left.inner.up", label: "▲", width: 34)
+                                ControlChip(model: model, id: "alpha.left.inner.down", label: "▼", width: 34)
+                                Text("INNER").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                            }
                         }
                     }
                     .frame(width: 150)
@@ -153,21 +165,21 @@ struct AlphaLayout: View {
                     // Right grip
                     VStack(spacing: 8) {
                         Text("RIGHT GRIP").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
-                        HStack(spacing: 10) {
-                            VStack(spacing: 4) {
-                                ControlChip(model: model, id: "alpha.right.rocker1.up", label: "▲", width: 34)
-                                ControlChip(model: model, id: "alpha.right.rocker1.down", label: "▼", width: 34)
-                                Text("TRIM").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
-                            }
-                            VStack(spacing: 4) {
-                                ControlChip(model: model, id: "alpha.right.rocker2.up", label: "▲", width: 34)
-                                ControlChip(model: model, id: "alpha.right.rocker2.down", label: "▼", width: 34)
-                                Text("ROCKER 2").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
-                            }
-                        }
                         HStack(spacing: 8) {
-                            ControlChip(model: model, id: "alpha.right.button1", label: "1", width: 40, round: true)
-                            ControlChip(model: model, id: "alpha.right.button2", label: "2", width: 40, round: true)
+                            ControlChip(model: model, id: "alpha.right.white", label: "WHITE", width: 50, round: true)
+                            ControlChip(model: model, id: "alpha.right.red", label: "RED", width: 50, tint: .red, round: true)
+                        }
+                        VStack(spacing: 4) {
+                            HStack(spacing: 4) {
+                                ControlChip(model: model, id: "alpha.right.top.in", label: "◀ in", width: 46)
+                                ControlChip(model: model, id: "alpha.right.top.out", label: "out ▶", width: 46)
+                            }
+                            Text("TOP ROCKER").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
+                            HStack(spacing: 4) {
+                                ControlChip(model: model, id: "alpha.right.bottom.in", label: "◀ in", width: 46)
+                                ControlChip(model: model, id: "alpha.right.bottom.out", label: "out ▶", width: 46)
+                            }
+                            Text("BOTTOM ROCKER").font(.system(size: 8, design: .monospaced)).foregroundStyle(.tertiary)
                         }
                     }
                     .frame(width: 150)
