@@ -69,3 +69,22 @@ During the Alpha phase bits 0–3 were pressed together and released, then 5–8
 4. Gear up/down, flaps up/down, trim wheel both ways, each lever button.
 5. Flip each switch up and note whether its bit sets or clears (polarity).
 6. Update `buttons.txt` and this table.
+
+## Confirmed on hardware (2026-11-15, learned in Honeycomb Monitor)
+
+Bit numbers as used by `buttons.txt` (bit n = payload byte 3 + n/8, bit n % 8).
+
+| Bit | Control | Bit | Control |
+| --- | --- | --- | --- |
+| 0 | Alpha ALT master | 17–23 | Bravo AP: HDG, NAV, APR, REV, ALT, VS, IAS |
+| 1 | Alpha BAT master | 32 / 33 | Bravo knob − / + |
+| 2 / 3 | Alpha AV BUS 1 / 2 | 34 | Bravo AUTOPILOT |
+| 4–8 | Alpha BCN, LAND, TAXI, NAV, STROBE | 35–41 | Bravo switches 1–7 (still provisional) |
+| 9–12 | Alpha magneto R, L, BOTH, START | 42 / 43 | Bravo gear UP / DOWN |
+| (none) | Alpha magneto OFF → derived bit 63 | 44 / 45 | Bravo flaps UP / DOWN |
+| 16 | Alpha hat ← | 46 / 47 | Bravo trim forward / back |
+|  |  | 48–53 | Bravo lever 1–6 below detent |
+
+Not yet learned: Alpha hat ↑/→/↓, grip buttons and rockers; Bravo selector (ALT/VS/HDG/CRS/IAS, probably bits 24–31), lever A/B buttons. Bit 42 (gear up) is the held bit seen at the start of the live session.
+
+Note: the Alpha light rockers and Bravo switches 1–5 default to the same light commands, so both panels drive the same lights; rebind one set if that conflicts.
