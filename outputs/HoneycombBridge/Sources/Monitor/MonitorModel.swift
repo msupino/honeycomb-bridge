@@ -82,6 +82,7 @@ final class MonitorModel: ObservableObject {
         if let data = try? Data(contentsOf: bindingsURL), let saved = try? JSONDecoder().decode([String: ControlBinding].self, from: data) {
             for (id, b) in saved where ControlCatalog.control(id) != nil { result[id] = b }
         }
+        for c in ControlCatalog.all where c.virtualBit != nil { result[c.id]?.bit = c.virtualBit; result[c.id]?.provisional = false }
         bindings = result
     }
     private func saveBindings() {
@@ -90,7 +91,7 @@ final class MonitorModel: ObservableObject {
     }
     func isActive(_ id: String) -> Bool {
         guard let bit = bindings[id]?.bit, let payload = state.lastPayload else { return false }
-        return ButtonBits.isSet(payload, bit)
+        return ButtonBits.isSet(VirtualBits.apply(payload, bindings), bit)
     }
     func beginButtonLearning(_ id: String) {
         guard running, let baseline = state.lastPayload, let control = ControlCatalog.control(id) else { buttonMessage = "Connect (or replay a capture) before learning."; return }
@@ -115,7 +116,7 @@ final class MonitorModel: ObservableObject {
             for (other, b) in bindings where other != id && b.bit == bit && !learner.group.controls.contains(other) { bindings[other]?.bit = nil }
             bindings[id]?.bit = bit; bindings[id]?.provisional = false
         }
-        for id in learner.group.controls where map[id] == nil { bindings[id]?.bit = nil; bindings[id]?.provisional = false }
+        for id in learner.group.controls where map[id] == nil { bindings[id]?.bit = ControlCatalog.control(id)?.virtualBit; bindings[id]?.provisional = false }
         saveBindings()
         let summary = learner.group.controls.map { "\(ControlCatalog.control($0)?.label ?? $0)=\(map[$0].map(String.init) ?? "—")" }.joined(separator: "  ")
         buttonMessage = "\(learner.group.title) learned: \(summary)"
@@ -257,7 +258,7 @@ final class MonitorModel: ObservableObject {
         while let newline = buffer.firstIndex(of: 10) {
             let line = Data(buffer[..<newline]); buffer.removeSubrange(...newline)
             if let payload = InputState.payload(from: line) {
-                state.accept(payload); simulator.update(payload); learner?.accept(payload); learnButton(payload); status = "Receiving Xbox input"
+                state.accept(payload); simulator.update(VirtualBits.apply(payload, bindings)); learner?.accept(payload); learnButton(payload); status = "Receiving Xbox input"
             } else if let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] {
                 switch event["event"] as? String {
                 case "gip_auth_verified": verified = true; status = "Session verified · waiting for input"

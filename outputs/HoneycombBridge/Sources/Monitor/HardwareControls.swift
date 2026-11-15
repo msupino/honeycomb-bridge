@@ -16,6 +16,10 @@ struct HardwareControl: Identifiable, Hashable {
     var defaultOn = ""
     var defaultOff = ""
     var knownBit: Int? = nil   // provisional bit from captures (see BRAVO-BUTTONS.md)
+    /// Derived control: the app sets `virtualBit` while none of `virtualOf` controls' bits are set
+    /// (the magneto OFF position reports no bit of its own). Byte 10 never changes on the rig, so bit 63 is free.
+    var virtualBit: Int? = nil
+    var virtualOf: [String] = []
     enum Device: String, CaseIterable, Identifiable { case alpha = "Alpha", bravo = "Bravo", charlie = "Charlie"; var id: String { rawValue } }
 }
 
@@ -47,7 +51,8 @@ enum ControlCatalog {
         .init(id: "alpha.sw.taxi", device: .alpha, label: "TAXI", kind: .toggle, defaultOn: "sim/lights/taxi_lights_on", defaultOff: "sim/lights/taxi_lights_off"),
         .init(id: "alpha.sw.nav", device: .alpha, label: "NAV", kind: .toggle, defaultOn: "sim/lights/nav_lights_on", defaultOff: "sim/lights/nav_lights_off"),
         .init(id: "alpha.sw.strobe", device: .alpha, label: "STROBE", kind: .toggle, defaultOn: "sim/lights/strobe_lights_on", defaultOff: "sim/lights/strobe_lights_off"),
-        .init(id: "alpha.mag.off", device: .alpha, label: "OFF", kind: .position, defaultOn: "sim/magnetos/magnetos_off_1"),
+        .init(id: "alpha.mag.off", device: .alpha, label: "OFF", kind: .position, defaultOn: "sim/magnetos/magnetos_off_1",
+              virtualBit: 63, virtualOf: ["alpha.mag.right", "alpha.mag.left", "alpha.mag.both", "alpha.mag.start"]),
         .init(id: "alpha.mag.right", device: .alpha, label: "R", kind: .position, defaultOn: "sim/magnetos/magnetos_right_1"),
         .init(id: "alpha.mag.left", device: .alpha, label: "L", kind: .position, defaultOn: "sim/magnetos/magnetos_left_1"),
         .init(id: "alpha.mag.both", device: .alpha, label: "BOTH", kind: .position, defaultOn: "sim/magnetos/magnetos_both_1"),
@@ -130,6 +135,21 @@ struct ButtonLearner {
     }
 }
 
+enum VirtualBits {
+    /// Payload with derived controls' bits set/cleared from the learned bits of the controls they depend on.
+    static func apply(_ payload: [UInt8], _ bindings: [String: ControlBinding]) -> [UInt8] {
+        var q = payload
+        for c in ControlCatalog.all {
+            guard let vb = c.virtualBit, q.count > 3 + vb / 8 else { continue }
+            let bits = c.virtualOf.compactMap { bindings[$0]?.bit }
+            let mask = UInt8(1 << (vb % 8))
+            if bits.count == c.virtualOf.count && !bits.contains(where: { ButtonBits.isSet(payload, $0) }) { q[3 + vb / 8] |= mask }
+            else { q[3 + vb / 8] &= ~mask }
+        }
+        return q
+    }
+}
+
 enum ButtonMapExport {
     /// Renders buttons.txt for the X-Plane plugin from learned bindings.
     static func render(_ bindings: [String: ControlBinding]) -> String {
@@ -157,7 +177,7 @@ struct ControlGroup: Identifiable {
     static let all: [ControlGroup] = [
         .init(id: "alpha.magneto", title: "Magneto", device: .alpha,
               controls: ["alpha.mag.off", "alpha.mag.right", "alpha.mag.left", "alpha.mag.both", "alpha.mag.start"],
-              instruction: "Start with the key at OFF. Turn it one step at a time: R, L, BOTH, START, then all the way back to OFF. Then Finish.", returnsToStart: true),
+              instruction: "Start with the key at OFF. Turn it one step at a time: R, L, BOTH, START, then back to OFF. Then Finish. (OFF sends no bit; the app derives it when no other position is set.)", returnsToStart: true),
         .init(id: "alpha.hat", title: "Hat", device: .alpha,
               controls: ["alpha.hat.up", "alpha.hat.right", "alpha.hat.down", "alpha.hat.left"],
               instruction: "Press the hat up, right, down, left — one press each, in that order. Then Finish."),

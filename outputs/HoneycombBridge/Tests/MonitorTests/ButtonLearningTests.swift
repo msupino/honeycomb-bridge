@@ -61,6 +61,13 @@ final class GroupLearningTests: XCTestCase {
         let map = try XCTUnwrap(learner.assignment())
         XCTAssertEqual(map["alpha.mag.right"], 5); XCTAssertEqual(map["alpha.mag.start"], 8); XCTAssertEqual(map["alpha.mag.off"], 4)
     }
+    func testMagnetoOffIsDerivedBit63() {
+        let b: [String: ControlBinding] = ["alpha.mag.right": .init(bit: 9, on: "", off: ""), "alpha.mag.left": .init(bit: 10, on: "", off: ""),
+                                           "alpha.mag.both": .init(bit: 11, on: "", off: ""), "alpha.mag.start": .init(bit: 12, on: "", off: "")]
+        XCTAssertTrue(ButtonBits.isSet(VirtualBits.apply(payload([35]), b), 63))      // key at OFF: none of 9–12
+        XCTAssertFalse(ButtonBits.isSet(VirtualBits.apply(payload([10]), b), 63))     // key at L
+        XCTAssertFalse(ButtonBits.isSet(VirtualBits.apply(payload([]), [:]), 63))      // not learned yet: never set
+    }
     func testFirstPositionWithoutBitAndMismatch() throws {
         let group = try XCTUnwrap(ControlGroup.all.first { $0.id == "bravo.selector" })
         var learner = GroupLearner(group: group, baseline: payload([]))
