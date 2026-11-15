@@ -31,10 +31,10 @@ enum ControlCatalog {
     // hat, outer and inner up/down rockers; right grip = white and red top buttons, top and bottom
     // in/out rockers. Base: 9 two-position switches and the 5-position magneto key.
     static let alpha: [HardwareControl] = [
-        .init(id: "alpha.hat.up", device: .alpha, label: "Hat ↑", kind: .momentary, defaultOn: "sim/general/hat_switch_up", knownBit: 72),
-        .init(id: "alpha.hat.down", device: .alpha, label: "Hat ↓", kind: .momentary, defaultOn: "sim/general/hat_switch_down", knownBit: 73),
-        .init(id: "alpha.hat.left", device: .alpha, label: "Hat ←", kind: .momentary, defaultOn: "sim/general/hat_switch_left", knownBit: 74),
-        .init(id: "alpha.hat.right", device: .alpha, label: "Hat →", kind: .momentary, defaultOn: "sim/general/hat_switch_right", knownBit: 75),
+        .init(id: "alpha.hat.up", device: .alpha, label: "Hat ↑", kind: .momentary, defaultOn: "sim/general/rot_up", knownBit: 72),
+        .init(id: "alpha.hat.down", device: .alpha, label: "Hat ↓", kind: .momentary, defaultOn: "sim/general/rot_down", knownBit: 73),
+        .init(id: "alpha.hat.left", device: .alpha, label: "Hat ←", kind: .momentary, defaultOn: "sim/general/rot_left", knownBit: 74),
+        .init(id: "alpha.hat.right", device: .alpha, label: "Hat →", kind: .momentary, defaultOn: "sim/general/rot_right", knownBit: 75),
         .init(id: "alpha.left.trigger", device: .alpha, label: "Trigger", kind: .momentary, defaultOn: "sim/autopilot/servos_off_any"),
         .init(id: "alpha.left.white", device: .alpha, label: "L white", kind: .momentary),
         .init(id: "alpha.left.outer.up", device: .alpha, label: "Outer ↑", kind: .momentary, defaultOn: "sim/flight_controls/pitch_trim_down"),
