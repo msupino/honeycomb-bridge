@@ -77,8 +77,8 @@ struct YokeView: View {
             .aspectRatio(1, contentMode: .fit)
             VStack(spacing: 10) {
                 // Yoke wheel rotated by roll (±90°).
-                Image(systemName: "steeringwheel").font(.system(size: 54, weight: .light))
-                    .foregroundStyle(tint.opacity(live ? 0.9 : 0.3))
+                YokeShape().fill(tint.opacity(live ? 0.9 : 0.3))
+                    .frame(width: 96, height: 58)
                     .rotationEffect(.degrees(roll * 90))
                     .offset(y: pitch * 14)
                     .animation(.linear(duration: 0.03), value: roll)
@@ -153,5 +153,25 @@ struct PedalsView: View {
             .frame(width: 44)
             Text("\(title) \(Int((value * 100).rounded()))%").font(.system(size: 10, design: .monospaced)).monospacedDigit().foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Aircraft yoke seen from the pilot seat: centre hub on a column, a crossbar, and two upturned grips.
+struct YokeShape: Shape {
+    func path(in r: CGRect) -> Path {
+        let w = r.width, h = r.height
+        func x(_ v: Double) -> Double { r.minX + v * w }
+        func y(_ v: Double) -> Double { r.minY + v * h }
+        var p = Path()
+        // Column below the hub
+        p.addRoundedRect(in: CGRect(x: x(0.44), y: y(0.55), width: w * 0.12, height: h * 0.45), cornerSize: CGSize(width: 2, height: 2))
+        // Hub
+        p.addRoundedRect(in: CGRect(x: x(0.36), y: y(0.38), width: w * 0.28, height: h * 0.28), cornerSize: CGSize(width: 5, height: 5))
+        // Crossbar
+        p.addRoundedRect(in: CGRect(x: x(0.08), y: y(0.44), width: w * 0.84, height: h * 0.16), cornerSize: CGSize(width: 4, height: 4))
+        // Grips
+        p.addRoundedRect(in: CGRect(x: x(0.0), y: y(0.0), width: w * 0.14, height: h * 0.60), cornerSize: CGSize(width: 6, height: 6))
+        p.addRoundedRect(in: CGRect(x: x(0.86), y: y(0.0), width: w * 0.14, height: h * 0.60), cornerSize: CGSize(width: 6, height: 6))
+        return p
     }
 }
