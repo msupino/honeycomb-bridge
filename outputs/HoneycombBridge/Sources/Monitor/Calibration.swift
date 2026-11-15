@@ -9,6 +9,22 @@ enum FlightAxis: Int, Codable, CaseIterable, Identifiable {
     var offsets: [Int] { group == "Alpha" ? Array(11...14) : group == "Bravo" ? Array(17...28) : Array(29...32) }
 }
 
+/// In Xbox mode the Hub reports Charlie as two one-way 10-bit fields (payload 29/30 and 31/32).
+/// Rudder travel and the toe brakes land in the same two fields, so the user picks how to use them.
+enum CharlieMode: String, CaseIterable, Identifiable, Codable {
+    case rudder = "Rudder", brakes = "Toe brakes", calibrated = "Calibrated mappings"
+    var id: String { rawValue }
+    static func fields(_ p: [UInt8]) -> (Double, Double)? {
+        guard p.count >= 33 else { return nil }
+        return (Double(Int(p[30]) << 2 | Int(p[29] >> 6)) / 1023, Double(Int(p[32]) << 2 | Int(p[31] >> 6)) / 1023)
+    }
+    /// Rudder = field 31 − field 29 (−1…1); reversed swaps direction.
+    static func rudder(_ p: [UInt8], reversed: Bool) -> Double? {
+        guard let (a, b) = fields(p) else { return nil }
+        let v = max(-1, min(1, b - a)); return reversed ? -v : v
+    }
+}
+
 struct AxisCalibration: Codable, Identifiable {
     var id: Int { axis.rawValue }
     let axis: FlightAxis

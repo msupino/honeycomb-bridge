@@ -301,6 +301,18 @@ struct CharlieLayout: View {
                 Text(String(format: "Raw field 29/30: %4d   ·   raw field 31/32: %4d   (0–1023)", model.charlieRaw.0, model.charlieRaw.1))
                     .font(.system(size: 11, design: .monospaced)).monospacedDigit().foregroundStyle(.secondary)
             }
+            Plate(title: "Charlie mode") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Picker("", selection: $model.charlieMode) { ForEach(CharlieMode.allCases) { Text($0.rawValue).tag($0) } }
+                            .pickerStyle(.segmented).labelsHidden().frame(width: 420)
+                        Toggle("Reverse", isOn: $model.charlieReversed).toggleStyle(.switch)
+                    }
+                    Text("In Xbox mode the Hub merges Charlie into two one-way fields (29 and 31): rudder travel and toe brakes share them and cannot be separated. Rudder = field 31 − field 29. Toe brakes = 29 left, 31 right. Calibrated uses the learned mappings below.")
+                        .font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if model.charlieMode == .calibrated {
             Plate(title: "Learn") {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach([FlightAxis.yaw, .leftBrake, .rightBrake]) { axis in AxisLearnRow(model: model, axis: axis) }
@@ -309,6 +321,7 @@ struct CharlieLayout: View {
                     Text("Rudder: start centred, slide the pedals fully left and right without pressing the toe brakes. Brakes: press only that toe brake fully, several times, then release.")
                         .font(.system(size: 10)).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
                 }
+            }
             }
         }
     }

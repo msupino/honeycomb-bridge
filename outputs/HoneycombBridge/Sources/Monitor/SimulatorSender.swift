@@ -7,6 +7,8 @@ final class SimulatorSender: @unchecked Sendable {
     private var payload: [UInt8]?
     private var mappings: [AxisCalibration] = []
     private var enabled = false
+    private var charlie: CharlieMode = .rudder
+    private var charlieReversed = false
     private var sourceRunning = false
     private var descriptor: Int32 = -1
     private var timer: DispatchSourceTimer?
@@ -38,8 +40,8 @@ final class SimulatorSender: @unchecked Sendable {
         }
     }
     deinit { timer?.cancel(); if descriptor >= 0 { close(descriptor) } }
-    func configure(_ mappings: [AxisCalibration], enabled: Bool) {
-        lock.lock(); self.mappings = mappings; self.enabled = enabled; lock.unlock()
+    func configure(_ mappings: [AxisCalibration], enabled: Bool, charlie: CharlieMode = .calibrated, charlieReversed: Bool = false) {
+        lock.lock(); self.mappings = mappings; self.enabled = enabled; self.charlie = charlie; self.charlieReversed = charlieReversed; lock.unlock()
     }
     func setSourceRunning(_ running: Bool) {
         lock.lock(); sourceRunning = running; if !running { payload = nil }; lock.unlock()
@@ -47,7 +49,7 @@ final class SimulatorSender: @unchecked Sendable {
     func update(_ payload: [UInt8]) { lock.lock(); self.payload = payload; sourceRunning = true; lock.unlock() }
     private func send() {
         guard descriptor >= 0 else { return }
-        lock.lock(); let latest = payload, definitions = mappings, active = enabled && sourceRunning; let outputEnabled = enabled; lock.unlock()
+        lock.lock(); let latest = payload, definitions = mappings, active = enabled && sourceRunning, charlieMode = charlie, reversed = charlieReversed; let outputEnabled = enabled; lock.unlock()
         sequence &+= 1
         var mask: UInt32 = 0, values = [Float](repeating: 0, count: FlightAxis.allCases.count), buttons: UInt64 = 0
         if active, let latest {
@@ -55,6 +57,18 @@ final class SimulatorSender: @unchecked Sendable {
                 if let value = definition.value(latest) { values[definition.axis.rawValue] = value; mask |= 1 << definition.axis.rawValue }
             }
             // Raw button/switch bits: payload bytes 3...10 -> bits 0...63 (mapped to commands by the plugin's buttons.txt).
+            // Charlie: override calibrated yaw/brakes according to the chosen mode.
+            let yaw = UInt32(1 << FlightAxis.yaw.rawValue), brakes = UInt32(1 << FlightAxis.leftBrake.rawValue | 1 << FlightAxis.rightBrake.rawValue)
+            switch charlieMode {
+            case .rudder:
+                if let r = CharlieMode.rudder(latest, reversed: reversed) { values[FlightAxis.yaw.rawValue] = Float(r); mask = mask & ~brakes | yaw }
+            case .brakes:
+                if let (l, r) = CharlieMode.fields(latest) {
+                    values[FlightAxis.leftBrake.rawValue] = Float(reversed ? r : l); values[FlightAxis.rightBrake.rawValue] = Float(reversed ? l : r)
+                    mask = mask & ~yaw | brakes
+                }
+            case .calibrated: break
+            }
             if latest.count >= 11 { for i in 0..<8 { buttons |= UInt64(latest[3 + i]) << (8 * i) }; mask |= 1 << 8 }
         }
         var packet = Data([72, 67, 66, 50]) // "HCB2"

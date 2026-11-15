@@ -17,7 +17,7 @@ struct ControlsSnapshot: Equatable {
     static func packed10(_ p: [UInt8], _ o: Int) -> Double { Double(Int(p[o + 1]) << 2 | Int(p[o] >> 6)) / 1023 }
 
     init() {}
-    init(payload p: [UInt8], calibrations: [AxisCalibration]) {
+    init(payload p: [UInt8], calibrations: [AxisCalibration], charlie: CharlieMode = .calibrated, charlieReversed: Bool = false) {
         guard p.count == 43 else { return }
         func calibrated(_ axis: FlightAxis) -> Double? { calibrations.first { $0.axis == axis }?.value(p).map(Double.init) }
         roll = max(-1, min(1, Self.signed16(p, 11) / 32767))
@@ -28,6 +28,13 @@ struct ControlsSnapshot: Equatable {
         leftBrake = Self.packed10(p, 29); rightBrake = Self.packed10(p, 31)
         if let l = calibrated(.leftBrake) { leftBrake = l; brakesCalibrated = true }
         if let r = calibrated(.rightBrake) { rightBrake = r }
+        switch charlie {
+        case .rudder: rudder = CharlieMode.rudder(p, reversed: charlieReversed); leftBrake = 0; rightBrake = 0; brakesCalibrated = true
+        case .brakes:
+            if let (l, r) = CharlieMode.fields(p) { leftBrake = charlieReversed ? r : l; rightBrake = charlieReversed ? l : r }
+            rudder = nil; brakesCalibrated = true
+        case .calibrated: break
+        }
         levers = (0..<6).map { Self.packed10(p, 17 + 2 * $0) }
     }
 }

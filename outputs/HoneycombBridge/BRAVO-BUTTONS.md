@@ -107,3 +107,7 @@ The Alpha's GIP metadata declares the interface `Microsoft.Xbox.Input.FlightStic
 The device answers a capabilities request (vendor command 0x00) with extra-button, extra-axis and LED counts; the patch reads layout from that, not from metadata.
 
 So the *byte layout* is a published, generic format, but the *assignment of Honeycomb controls to extra-button indices* is Honeycomb-specific and no public reference was found; it still has to be learned (or taken from the table above). Fire buttons in byte 2 and navigation bytes 0–1 are not used by this project yet.
+
+## Charlie in Xbox mode (confirmed 2026-11-15)
+
+The Hub reports the Charlie pedals as two one-way 10-bit extra axes: field 29/30 and field 31/32. Rudder travel and the toe brakes **both drive these same two fields** (rudder one way → 29, the other way → 31; each toe brake also moves its side's field). The standard FlightStick yaw (bytes 15/16) never changes. Rudder and brakes therefore cannot be separated in Xbox mode. Honeycomb Monitor offers a **Charlie mode**: *Rudder* (yaw = field 31 − field 29), *Toe brakes* (29 = left, 31 = right) or *Calibrated mappings*, with Reverse.

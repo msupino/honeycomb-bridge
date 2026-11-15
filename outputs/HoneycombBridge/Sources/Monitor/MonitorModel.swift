@@ -12,6 +12,12 @@ final class MonitorModel: ObservableObject {
     @Published var now = Date()
     @Published var controls = ControlsSnapshot()
     @Published var charlieRaw = (0, 0)
+    @Published var charlieMode: CharlieMode = CharlieMode(rawValue: UserDefaults.standard.string(forKey: "charlieMode") ?? "") ?? .rudder {
+        didSet { UserDefaults.standard.set(charlieMode.rawValue, forKey: "charlieMode"); updateSimulator() }
+    }
+    @Published var charlieReversed = UserDefaults.standard.bool(forKey: "charlieReversed") {
+        didSet { UserDefaults.standard.set(charlieReversed, forKey: "charlieReversed"); updateSimulator() }
+    }
     @Published var calibrations: [AxisCalibration] = []
     @Published private(set) var simulatorEnabled = false
     @Published var simulatorStatus = "X-Plane output off"
@@ -41,8 +47,8 @@ final class MonitorModel: ObservableObject {
         simulator.onStatus = { [weak self] status in Task { @MainActor [weak self] in self?.simulatorStatus = status } }
         updateSimulator()
     }
-    private func updateSimulator() { simulator.configure(calibrations, enabled: simulatorEnabled) }
-    func setSimulatorEnabled(_ enabled: Bool) { simulatorEnabled = enabled && !calibrations.isEmpty && running; updateSimulator() }
+    private func updateSimulator() { simulator.configure(calibrations, enabled: simulatorEnabled, charlie: charlieMode, charlieReversed: charlieReversed) }
+    func setSimulatorEnabled(_ enabled: Bool) { simulatorEnabled = enabled && (!calibrations.isEmpty || charlieMode != .calibrated) && running; updateSimulator() }
     func beginLearning(_ axis: FlightAxis) {
         guard running, let baseline = state.lastPayload else { calibrationMessage = "Connect and move a control once before learning."; return }
         setSimulatorEnabled(false); candidate = nil; learningAxis = axis
@@ -275,7 +281,7 @@ final class MonitorModel: ObservableObject {
 
     func flush() {
         state.tick(); input = state; now = Date()
-        let snapshot = state.lastPayload.map { ControlsSnapshot(payload: $0, calibrations: calibrations) } ?? ControlsSnapshot()
+        let snapshot = state.lastPayload.map { ControlsSnapshot(payload: $0, calibrations: calibrations, charlie: charlieMode, charlieReversed: charlieReversed) } ?? ControlsSnapshot()
         if snapshot != controls { controls = snapshot }
         if let p = state.lastPayload, p.count == 43 {
             let raw = (Int(p[30]) << 2 | Int(p[29] >> 6), Int(p[32]) << 2 | Int(p[31] >> 6))

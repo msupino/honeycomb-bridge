@@ -38,3 +38,23 @@ final class MonitorTests: XCTestCase {
         XCTAssertNotNil(ControlsSnapshot(payload: p, calibrations: [yaw]).rudder)
     }
 }
+
+final class CharlieModeTests: XCTestCase {
+    private func payload(_ f29: Int, _ f31: Int) -> [UInt8] {
+        var p = [UInt8](repeating: 0, count: 43)
+        p[29] = UInt8((f29 & 3) << 6); p[30] = UInt8(f29 >> 2); p[31] = UInt8((f31 & 3) << 6); p[32] = UInt8(f31 >> 2)
+        return p
+    }
+    func testRudderIsDifferenceOfFields() {
+        XCTAssertEqual(CharlieMode.rudder(payload(0, 0), reversed: false), 0)
+        XCTAssertEqual(CharlieMode.rudder(payload(1023, 0), reversed: false)!, -1, accuracy: 1e-9)
+        XCTAssertEqual(CharlieMode.rudder(payload(0, 1023), reversed: false)!, 1, accuracy: 1e-9)
+        XCTAssertEqual(CharlieMode.rudder(payload(0, 1023), reversed: true)!, -1, accuracy: 1e-9)
+        let snap = ControlsSnapshot(payload: payload(0, 512), calibrations: [], charlie: .rudder)
+        XCTAssertEqual(snap.rudder!, 512.0 / 1023, accuracy: 1e-9); XCTAssertEqual(snap.leftBrake, 0)
+    }
+    func testBrakesMode() {
+        let snap = ControlsSnapshot(payload: payload(1023, 0), calibrations: [], charlie: .brakes)
+        XCTAssertEqual(snap.leftBrake, 1, accuracy: 1e-9); XCTAssertEqual(snap.rightBrake, 0); XCTAssertNil(snap.rudder)
+    }
+}
