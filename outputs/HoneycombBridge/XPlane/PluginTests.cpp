@@ -108,7 +108,10 @@ int main() {
     loop(packet(kButtonsValid)); loop(packet(kButtonsValid, 0, 1u << 6)); assert(brk.begins==1);
     loop(packet(kButtonsValid)); assert(brk.ends==1);
     enabled=true;XPluginReceiveMessage(0,XPLM_MSG_PLANE_LOADED,reinterpret_cast<void *>(1));assert(enabled);
-    XPluginReceiveMessage(0,XPLM_MSG_PLANE_LOADED,nullptr);assert(!enabled);
+    std::remove("/tmp/hcb-test/HoneycombInput/settings.txt");
+    XPluginReceiveMessage(0,XPLM_MSG_PLANE_LOADED,nullptr);assert(!enabled);     // no settings file → off
+    writeEnabledSetting(true); XPluginReceiveMessage(0,XPLM_MSG_PLANE_LOADED,nullptr); assert(enabled);  // settings.txt enabled 1 → on
+    menuAction(nullptr, nullptr); assert(!enabled && !readEnabledSetting());      // menu toggle persists
 
     HoneycombFrame test;auto bad=packet(512);assert(!decodeHoneycomb(bad.data(),bad.size(),test));
     bad=packet(1);writeNetwork32(bad.data()+16,0x7fc00000);assert(!decodeHoneycomb(bad.data(),bad.size(),test));
@@ -116,5 +119,5 @@ int main() {
     auto good=packet(kMaskAll, 0x8000000000000001ull, 0x00800001u);assert(decodeHoneycomb(good.data(),good.size(),test) && test.buttons==0x8000000000000001ull && test.bit(64) && test.bit(87) && !test.bit(65));
     XPluginDisable();XPluginStop();
     for (int i=0;i<3;i++) assert(!owned[i]);
-    std::puts("Plugin unit tests passed: decode, axes incl. prop/mixture, stale release, independent brakes, button map parsing, held and latching buttons, AI plane-load filter, override conflict, shutdown.");
+    std::puts("Plugin unit tests passed: decode, axes incl. prop/mixture, stale release, independent brakes, button map parsing, held and latching buttons, AI plane-load filter, settings.txt enable, override conflict, shutdown.");
 }

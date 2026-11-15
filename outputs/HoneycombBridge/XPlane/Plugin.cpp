@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <cerrno>
 
 static int inputSocket = -1;
 static bool enabled = false;
@@ -37,7 +38,7 @@ struct ButtonBinding { XPLMCommandRef on = nullptr, off = nullptr; };
 static ButtonBinding bindings[kButtonBits];
 static bool buttonState[kButtonBits]{}, held[kButtonBits]{};
 static bool buttonsSynced = false;
-static std::string buttonMapPath;
+static std::string buttonMapPath, settingsPath;
 
 static void releaseOverride(int i) {
     if (owned[i]) { XPLMSetDatai(overrides[i], 0); owned[i] = false; }
@@ -99,9 +100,20 @@ static void applyButtons(const HoneycombFrame &f) {
     }
 }
 
+// settings.txt in the plugin folder: "enabled 1" turns calibrated input on at load/enable.
+// The menu item writes it, so the choice survives restarts and plugin reloads.
+static bool readEnabledSetting() {
+    FILE *f = std::fopen(settingsPath.c_str(), "r"); if (!f) return false;
+    char key[64] = ""; int value = 0; bool on = false;
+    while (std::fscanf(f, "%63s %d", key, &value) == 2) if (!std::strcmp(key, "enabled")) on = value != 0;
+    std::fclose(f); return on;
+}
+static void writeEnabledSetting(bool on) {
+    if (FILE *f = std::fopen(settingsPath.c_str(), "w")) { std::fprintf(f, "enabled %d\n", on ? 1 : 0); std::fclose(f); }
+}
 static void menuAction(void *, void *item) {
     if (item == reinterpret_cast<void *>(1)) { loadButtonMap(buttonMapPath); return; }
-    enabled = !enabled;
+    enabled = !enabled; writeEnabledSetting(enabled);
     XPLMCheckMenuItem(menu, 0, enabled ? xplm_Menu_Checked : xplm_Menu_Unchecked);
     if (!enabled) releaseAll();
 }
@@ -174,6 +186,7 @@ PLUGIN_API int XPluginStart(char *name, char *signature, char *description) {
     std::string folder(path);
     for (int up = 0; up < 2; up++) { auto slash = folder.find_last_of('/'); if (slash != std::string::npos) folder.erase(slash); }
     buttonMapPath = folder + "/buttons.txt";
+    settingsPath = folder + "/settings.txt";
     loadButtonMap(buttonMapPath);
     parentItem = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "Honeycomb Input", nullptr, 1);
     menu = XPLMCreateMenu("Honeycomb Input", XPLMFindPluginsMenu(), parentItem, menuAction, nullptr);
@@ -185,12 +198,15 @@ PLUGIN_API int XPluginEnable() {
     inputSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (inputSocket < 0) { logLine("socket() failed"); return 0; }
     if (fcntl(inputSocket, F_SETFL, O_NONBLOCK) < 0) { close(inputSocket); inputSocket = -1; return 0; }
+    int one = 1; setsockopt(inputSocket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
     sockaddr_in address{}; address.sin_family = AF_INET; address.sin_len = sizeof(address);
     address.sin_port = htons(49876); address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     if (bind(inputSocket, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) {
-        logLine("cannot bind 127.0.0.1:49876 (port in use?); plugin not enabled"); close(inputSocket); inputSocket = -1; return 0;
+        logLine(std::string("cannot bind 127.0.0.1:49876: ") + std::strerror(errno) + "; plugin not enabled"); close(inputSocket); inputSocket = -1; return 0;
     }
-    enabled = false; receivedAny = false;
+    enabled = readEnabledSetting(); receivedAny = false;
+    if (menu) XPLMCheckMenuItem(menu, 0, enabled ? xplm_Menu_Checked : xplm_Menu_Unchecked);
+    if (enabled) logLine("calibrated input enabled from settings.txt");
     XPLMRegisterFlightLoopCallback(flightLoop, -1, nullptr); return 1;
 }
 PLUGIN_API void XPluginDisable() {
@@ -205,7 +221,9 @@ PLUGIN_API void XPluginStop() {
 }
 PLUGIN_API void XPluginReceiveMessage(XPLMPluginID, int message, void *param) {
     // PLANE_LOADED also fires for AI/multiplayer aircraft; only the user's aircraft (index 0) resets input.
+    // Release overrides on aircraft load; re-apply the saved enable setting.
     if (message == XPLM_MSG_PLANE_LOADED && reinterpret_cast<intptr_t>(param) == 0) {
-        enabled = false; releaseAll(); receivedAny = false; XPLMCheckMenuItem(menu, 0, xplm_Menu_Unchecked);
+        releaseAll(); receivedAny = false; enabled = readEnabledSetting();
+        XPLMCheckMenuItem(menu, 0, enabled ? xplm_Menu_Checked : xplm_Menu_Unchecked);
     }
 }

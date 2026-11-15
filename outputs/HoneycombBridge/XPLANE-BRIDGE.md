@@ -84,3 +84,7 @@ The app-to-plugin format is ours, not the Xbox USB format: `HCB3`, mask (bits 0�
 ## Current physical calibration notes
 
 The user saved pitch and roll through the UI; the profiles measured full signed 16-bit ranges at the two Alpha field pairs. The pedal calibration remains provisional. The user confirmed sliding the pedals left/right without pressing toe brakes while learning rudder; a candidate was saved, but field overlap and each independent brake response still need verification. Do not treat the current profile as a finished, simulator-tested full-rig mapping. The original `calibration.json` stays beside the working app and is not shipped as a universal preset.
+
+## settings.txt (auto-enable)
+
+`HoneycombInput/settings.txt` holds `enabled 1` or `enabled 0`. The plugin reads it when it is enabled and after the user aircraft loads, so calibrated input comes on without using the menu. Toggling *Plugins → Honeycomb Input → Enable calibrated input* rewrites the file. The socket now binds with `SO_REUSEADDR`, and a bind failure logs the system error.
