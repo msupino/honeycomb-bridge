@@ -11,6 +11,7 @@ final class MonitorModel: ObservableObject {
     @Published var captureURL: URL?
     @Published var now = Date()
     @Published var controls = ControlsSnapshot()
+    @Published var charlieRaw = (0, 0)
     @Published var calibrations: [AxisCalibration] = []
     @Published private(set) var simulatorEnabled = false
     @Published var simulatorStatus = "X-Plane output off"
@@ -23,6 +24,9 @@ final class MonitorModel: ObservableObject {
     @Published var learningControl: String?
     @Published var buttonMessage = "Select a button or switch, then Learn and operate it."
     private var buttonLearner: ButtonLearner?
+    private var groupLearner: GroupLearner?
+    @Published var learningGroup: ControlGroup?
+    @Published var groupDetected = 0
     private var bindingsURL: URL { profileURL.deletingLastPathComponent().appendingPathComponent("controls.json") }
     private let simulator = SimulatorSender()
     private var profileURL: URL {
@@ -50,8 +54,8 @@ final class MonitorModel: ObservableObject {
         self.learner = nil; learningAxis = nil
         guard let found = learner.candidate() else { calibrationMessage = "Not enough distinct travel. Start centered or at idle, then sweep the full range and try again."; return }
         let used = Set(found.offset..<found.offset + found.width)
-        if calibrations.contains(where: { $0.axis != found.axis && !used.isDisjoint(with: Set($0.offset..<$0.offset + $0.width)) }) {
-            calibrationMessage = "This movement overlaps an existing control. Move only the selected control and try again."; return
+        if let clash = calibrations.first(where: { $0.axis != found.axis && !used.isDisjoint(with: Set($0.offset..<$0.offset + $0.width)) }) {
+            calibrationMessage = "Bytes \(found.offset)–\(found.offset + found.width - 1) are already used by \(clash.axis.title). Forget that mapping if it is wrong, then learn again."; return
         }
         candidate = found; calibrationMessage = "Candidate found. Move the control and check the preview. Reverse it if needed, then save."
     }
@@ -93,8 +97,36 @@ final class MonitorModel: ObservableObject {
         selectedControl = id; learningControl = id; buttonLearner = ButtonLearner(controlID: id, baseline: baseline)
         buttonMessage = control.kind == .toggle ? "Flip \(control.label) once." : control.kind == .position ? "Move to \(control.label)." : "Press \(control.label) once."
     }
-    func cancelButtonLearning() { buttonLearner = nil; learningControl = nil }
+    func cancelButtonLearning() { buttonLearner = nil; learningControl = nil; groupLearner = nil; learningGroup = nil }
+    func beginGroupLearning(_ group: ControlGroup) {
+        guard running, let baseline = state.lastPayload else { buttonMessage = "Connect before learning."; return }
+        buttonLearner = nil; learningControl = nil
+        groupLearner = GroupLearner(group: group, baseline: baseline); learningGroup = group; groupDetected = 0
+        buttonMessage = group.instruction
+    }
+    func finishGroupLearning() {
+        guard let learner = groupLearner else { return }
+        groupLearner = nil; learningGroup = nil
+        guard let map = learner.assignment() else {
+            buttonMessage = "\(learner.group.title): expected \(learner.group.controls.count) changes, saw \(learner.order.count) (bits \(learner.order.map(String.init).joined(separator: ", "))). Nothing saved — try again, operating only these controls, once each, in order."
+            return
+        }
+        for (id, bit) in map {
+            for (other, b) in bindings where other != id && b.bit == bit && !learner.group.controls.contains(other) { bindings[other]?.bit = nil }
+            bindings[id]?.bit = bit; bindings[id]?.provisional = false
+        }
+        for id in learner.group.controls where map[id] == nil { bindings[id]?.bit = nil; bindings[id]?.provisional = false }
+        saveBindings()
+        let summary = learner.group.controls.map { "\(ControlCatalog.control($0)?.label ?? $0)=\(map[$0].map(String.init) ?? "—")" }.joined(separator: "  ")
+        buttonMessage = "\(learner.group.title) learned: \(summary)"
+    }
     private func learnButton(_ payload: [UInt8]) {
+        if groupLearner != nil {
+            groupLearner?.accept(payload)
+            let count = groupLearner?.order.count ?? 0
+            if count != groupDetected { groupDetected = count }
+            return
+        }
         guard let learner = buttonLearner, let found = learner.detect(payload) else { return }
         let bit = found.bit
         buttonLearner = nil; learningControl = nil
@@ -243,6 +275,10 @@ final class MonitorModel: ObservableObject {
         state.tick(); input = state; now = Date()
         let snapshot = state.lastPayload.map { ControlsSnapshot(payload: $0, calibrations: calibrations) } ?? ControlsSnapshot()
         if snapshot != controls { controls = snapshot }
+        if let p = state.lastPayload, p.count == 43 {
+            let raw = (Int(p[30]) << 2 | Int(p[29] >> 6), Int(p[32]) << 2 | Int(p[31] >> 6))
+            if raw != charlieRaw { charlieRaw = raw }
+        }
     }
 
     /// Plays a saved capture through the live display (no USB, no simulator output). Loops until stopped.

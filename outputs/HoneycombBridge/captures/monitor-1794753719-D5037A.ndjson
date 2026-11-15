@@ -1,0 +1,2 @@
+{"event":"usb_status","operation":"find_devices","status":0,"status_hex":"0x00000000","time":1794753719.1109629}
+{"event":"error","matches":0,"message":"Exactly one matching USB device is required","time":1794753719.114723}

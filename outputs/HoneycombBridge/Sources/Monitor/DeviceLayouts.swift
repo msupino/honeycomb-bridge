@@ -19,7 +19,7 @@ struct DevicesPanel: View {
                 switch tab {
                 case .alpha: AlphaLayout(model: model, live: connected)
                 case .bravo: BravoLayout(model: model, live: connected)
-                case .charlie: CharlieLayout(controls: model.controls, live: connected)
+                case .charlie: CharlieLayout(model: model, live: connected)
                 case .activity:
                     HStack(alignment: .top, spacing: 16) {
                         ForEach(model.input.groups) { MovementCard(group: $0, now: model.now, connected: connected) }
@@ -27,7 +27,7 @@ struct DevicesPanel: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            if tab == .alpha || tab == .bravo { ControlInspector(model: model) }
+            if tab == .alpha || tab == .bravo { GroupLearnBar(model: model, device: tab == .alpha ? .alpha : .bravo); ControlInspector(model: model) }
         }
         .onAppear {
             if let i = CommandLine.arguments.firstIndex(of: "--tab"), i + 1 < CommandLine.arguments.count,
@@ -292,16 +292,79 @@ struct LeverTrack: View {
 // MARK: - Charlie
 
 struct CharlieLayout: View {
-    let controls: ControlsSnapshot
+    @ObservedObject var model: MonitorModel
     let live: Bool
     var body: some View {
-        Plate(title: "Rudder pedals") {
-            VStack(spacing: 16) {
-                PedalsView(controls: controls, tint: .mint, live: live).frame(height: 300)
-                Text("Charlie has no buttons. Rudder appears once learned in Calibrate for X-Plane; toe brakes use raw fields 29/31 until calibrated.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+        VStack(spacing: 14) {
+            Plate(title: "Rudder pedals") {
+                PedalsView(controls: model.controls, tint: .mint, live: live).frame(height: 240)
+                Text(String(format: "Raw field 29/30: %4d   ·   raw field 31/32: %4d   (0–1023)", model.charlieRaw.0, model.charlieRaw.1))
+                    .font(.system(size: 11, design: .monospaced)).monospacedDigit().foregroundStyle(.secondary)
+            }
+            Plate(title: "Learn") {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach([FlightAxis.yaw, .leftBrake, .rightBrake]) { axis in AxisLearnRow(model: model, axis: axis) }
+                    HStack { Spacer(); Button("Forget all pedal mappings", role: .destructive) { [FlightAxis.yaw, .leftBrake, .rightBrake].forEach(model.remove) }.disabled(model.learningAxis != nil) }
+                    Text(model.calibrationMessage).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Text("Rudder: start centred, slide the pedals fully left and right without pressing the toe brakes. Brakes: press only that toe brake fully, several times, then release.")
+                        .font(.system(size: 10)).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+    }
+}
+
+/// Learn / finish / save row for one axis, sharing the calibration flow used by Calibrate for X-Plane.
+struct AxisLearnRow: View {
+    @ObservedObject var model: MonitorModel
+    let axis: FlightAxis
+    var body: some View {
+        let saved = model.calibrations.first { $0.axis == axis }
+        let shown = model.candidate?.axis == axis ? model.candidate : saved
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(axis.title).font(.system(size: 12, weight: .medium))
+                Text(shown.map { "bytes \($0.offset)\($0.width == 2 ? "–\($0.offset + 1)" : "") · \($0.signed ? "signed" : "unsigned") · \($0.bigEndian ? "BE" : "LE")\(model.candidate?.axis == axis ? " · candidate" : "")" } ?? "not calibrated")
+                    .font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
+            }
+            .frame(width: 230, alignment: .leading)
+            ProgressView(value: shown.map { d in let v = Double(model.preview(d)); return axis.bipolar ? (v + 1) / 2 : v } ?? 0).tint(.mint)
+            if model.learningAxis == axis {
+                Button("Finish") { model.finishLearning() }.buttonStyle(.borderedProminent)
+            } else if model.candidate?.axis == axis {
+                Button("Reverse") { model.reverse(axis) }
+                Button("Save") { model.saveCandidate() }.buttonStyle(.borderedProminent)
+            } else {
+                Button(saved == nil ? "Learn" : "Relearn") { model.beginLearning(axis) }.disabled(model.learningAxis != nil)
+                if saved != nil { Button("Reverse") { model.reverse(axis) }; Button("Forget", role: .destructive) { model.remove(axis) } }
+            }
+        }
+    }
+}
+
+// MARK: - Group learning
+
+struct GroupLearnBar: View {
+    @ObservedObject var model: MonitorModel
+    let device: HardwareControl.Device
+    var body: some View {
+        HStack(spacing: 8) {
+            if let group = model.learningGroup {
+                Image(systemName: "record.circle").foregroundStyle(.orange)
+                Text("\(group.title): \(model.groupDetected) of \(group.controls.count) detected").font(.system(size: 12, weight: .semibold)).monospacedDigit()
+                Text(group.instruction).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2)
+                Spacer()
+                Button("Cancel") { model.cancelButtonLearning() }
+                Button("Finish") { model.finishGroupLearning() }.buttonStyle(.borderedProminent)
+            } else {
+                Text("LEARN ALL:").font(.system(size: 9, weight: .semibold, design: .monospaced)).foregroundStyle(.secondary)
+                ForEach(ControlGroup.all.filter { $0.device == device }) { group in
+                    Button(group.title) { model.beginGroupLearning(group) }.controlSize(.small)
+                }
+                Spacer()
+            }
+        }
+        .padding(10).background(Color.orange.opacity(model.learningGroup == nil ? 0.03 : 0.10), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 

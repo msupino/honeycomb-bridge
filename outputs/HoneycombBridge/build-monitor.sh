@@ -4,7 +4,8 @@ project_dir=$(cd -- "$(dirname -- "$0")" && pwd)
 swift build --package-path "$project_dir" -c release
 bin_dir=$(swift build --package-path "$project_dir" -c release --show-bin-path)
 app_dir="$project_dir/Honeycomb Monitor.app"
-mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Helpers"
+mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Helpers" "$app_dir/Contents/Resources"
+cp "$project_dir/Icon/AppIcon.icns" "$app_dir/Contents/Resources/AppIcon.icns"
 cp "$bin_dir/honeycomb-monitor" "$app_dir/Contents/MacOS/honeycomb-monitor"
 cp "$bin_dir/honeycomb-usb-read" "$app_dir/Contents/Helpers/honeycomb-usb-read"
 cat > "$app_dir/Contents/Info.plist" <<'PLIST'
@@ -14,6 +15,7 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>local.honeycomb.research.monitor</string>
 <key>CFBundleName</key><string>Honeycomb Monitor</string>
 <key>CFBundleDisplayName</key><string>Honeycomb Monitor</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleExecutable</key><string>honeycomb-monitor</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>

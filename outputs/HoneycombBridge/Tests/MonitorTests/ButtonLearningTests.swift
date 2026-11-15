@@ -39,3 +39,29 @@ final class ButtonLearningTests: XCTestCase {
         XCTAssertFalse(text.contains("ignored")); XCTAssertFalse(text.contains("NAV")); XCTAssertFalse(text.contains("\n20 "))
     }
 }
+
+final class GroupLearningTests: XCTestCase {
+    private func payload(_ bits: [Int]) -> [UInt8] {
+        var p = [UInt8](repeating: 0, count: 43)
+        for b in bits { p[3 + b / 8] |= 1 << UInt8(b % 8) }
+        return p
+    }
+    func testMagnetoSweepAssignsEachPosition() throws {
+        let group = try XCTUnwrap(ControlGroup.all.first { $0.id == "alpha.magneto" })
+        var learner = GroupLearner(group: group, baseline: payload([4, 11]))            // OFF bit 4 held, 11 unrelated
+        for step in [[5, 11], [6, 11], [7, 11], [7, 8, 11], [7, 11]] { learner.accept(payload(step)) } // R, L, BOTH, START, release
+        let map = try XCTUnwrap(learner.assignment())
+        XCTAssertEqual(map["alpha.mag.off"], 4); XCTAssertEqual(map["alpha.mag.right"], 5)
+        XCTAssertEqual(map["alpha.mag.left"], 6); XCTAssertEqual(map["alpha.mag.both"], 7); XCTAssertEqual(map["alpha.mag.start"], 8)
+    }
+    func testFirstPositionWithoutBitAndMismatch() throws {
+        let group = try XCTUnwrap(ControlGroup.all.first { $0.id == "bravo.selector" })
+        var learner = GroupLearner(group: group, baseline: payload([]))
+        for step in [[20], [21], [22], [23]] { learner.accept(payload(step)) }
+        let map = try XCTUnwrap(learner.assignment())
+        XCTAssertNil(map["bravo.sel.alt"]); XCTAssertEqual(map["bravo.sel.vs"], 20); XCTAssertEqual(map["bravo.sel.ias"], 23)
+        var short = GroupLearner(group: group, baseline: payload([]))
+        short.accept(payload([20]))
+        XCTAssertNil(short.assignment())
+    }
+}

@@ -39,6 +39,7 @@ struct MonitorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top) {
+                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64).padding(.top, 6)
                 VStack(alignment: .leading, spacing: 7) {
                     Text("HONEYCOMB / LIVE LAB").font(.system(size: 11, weight: .semibold, design: .monospaced)).tracking(2.5).foregroundStyle(.secondary)
                     Text("Three devices. One connection.").font(.system(size: 30, weight: .semibold, design: .rounded))

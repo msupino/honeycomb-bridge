@@ -272,6 +272,10 @@ The monitor has tabs for **Alpha XPC**, **Bravo**, **Charlie** and the original 
 
 To learn a control: click it, press **Learn**, then press/flip/move that one control. The first bit that changes is stored (a single newly-set bit wins if several change at once, and the others are reported). A bit learned for one control is removed from any other. Each control also carries an X-Plane command (toggles have on/off commands and a **Swap** button). Learned bits and commands are saved to `controls.json` beside the app. **Export buttons.txt…** writes the plugin's button map; save it into `X-Plane 12/Resources/plugins/HoneycombInput/` and choose *Plugins → Honeycomb Input → Reload button map*.
 
+**Learn all** (bar above the inspector) learns a whole group in one pass — magneto, hat, rocker switches, grip buttons, autopilot row, selector, knob, flaps/trim/gear, switches, lever detents. Operate the controls once each in the order shown, then Finish; each control gets the k-th bit that changed (leaving a position clears its bit before the next sets, so selectors map cleanly). If one bit fewer than controls changes, the first position (e.g. OFF) is left without a bit; any other count saves nothing.
+
+The **Charlie** tab learns rudder and each toe brake directly (Learn → Finish → Save, Reverse, **Forget**) and shows both raw pedal fields live. A mapping that uses bytes another saved axis already uses is refused with the clashing axis named; Forget that one first.
+
 Dashed outline = not learned; yellow dot = provisional bit from the captures (Bravo switches 35–41 and lever detents 48–53, see BRAVO-BUTTONS.md). Charlie has no buttons.
 
 `--tab alpha|bravo|charlie|activity` opens a tab at launch (useful with `--replay`).

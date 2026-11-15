@@ -142,3 +142,66 @@ enum ButtonMapExport {
         return lines.joined(separator: "\n") + "\n"
     }
 }
+
+/// Controls learned together in one pass: the user operates them in the listed order and each
+/// control gets the k-th distinct bit to change.
+struct ControlGroup: Identifiable {
+    let id: String
+    let title: String
+    let device: HardwareControl.Device
+    let controls: [String]
+    let instruction: String
+
+    static let all: [ControlGroup] = [
+        .init(id: "alpha.magneto", title: "Magneto", device: .alpha,
+              controls: ["alpha.mag.off", "alpha.mag.right", "alpha.mag.left", "alpha.mag.both", "alpha.mag.start"],
+              instruction: "Start with the key at OFF. Turn it one step at a time: R, L, BOTH, then hold START briefly and release. Then Finish."),
+        .init(id: "alpha.hat", title: "Hat", device: .alpha,
+              controls: ["alpha.hat.up", "alpha.hat.right", "alpha.hat.down", "alpha.hat.left"],
+              instruction: "Press the hat up, right, down, left — one press each, in that order. Then Finish."),
+        .init(id: "alpha.rockers", title: "Rocker switches", device: .alpha,
+              controls: ["alpha.sw.master_alt", "alpha.sw.master_bat", "alpha.sw.avionics1", "alpha.sw.avionics2", "alpha.sw.beacon", "alpha.sw.land", "alpha.sw.taxi", "alpha.sw.nav", "alpha.sw.strobe"],
+              instruction: "Start with all rockers OFF. Flip each one ON, left to right (ALT, BAT, AV 1, AV 2, BCN, LAND, TAXI, NAV, STROBE). Then Finish."),
+        .init(id: "alpha.grips", title: "Grip buttons", device: .alpha,
+              controls: ["alpha.left.red", "alpha.left.white", "alpha.right.rocker1.up", "alpha.right.rocker1.down", "alpha.right.rocker2.up", "alpha.right.rocker2.down", "alpha.right.button1", "alpha.right.button2"],
+              instruction: "Press once each, in order: left red, left white, trim up, trim down, rocker 2 up, rocker 2 down, right 1, right 2. Then Finish."),
+        .init(id: "bravo.ap", title: "Autopilot row", device: .bravo,
+              controls: ["bravo.ap.hdg", "bravo.ap.nav", "bravo.ap.apr", "bravo.ap.rev", "bravo.ap.alt", "bravo.ap.vs", "bravo.ap.ias", "bravo.ap.master"],
+              instruction: "Press each autopilot button once, left to right: HDG, NAV, APR, REV, ALT, VS, IAS, AUTOPILOT. Then Finish."),
+        .init(id: "bravo.selector", title: "Selector", device: .bravo,
+              controls: ["bravo.sel.alt", "bravo.sel.vs", "bravo.sel.hdg", "bravo.sel.crs", "bravo.sel.ias"],
+              instruction: "Start with the selector at ALT. Turn it one step at a time: VS, HDG, CRS, IAS. Then Finish."),
+        .init(id: "bravo.knob", title: "Knob", device: .bravo, controls: ["bravo.knob.inc", "bravo.knob.dec"],
+              instruction: "Turn the knob one click clockwise, then one click counter-clockwise. Then Finish."),
+        .init(id: "bravo.flapstrimgear", title: "Flaps · trim · gear", device: .bravo,
+              controls: ["bravo.flaps.up", "bravo.flaps.down", "bravo.trim.down", "bravo.trim.up", "bravo.gear.up", "bravo.gear.down"],
+              instruction: "Start with gear DOWN. Flaps lever up then down, trim wheel one notch forward then back, gear lever UP, then DOWN again. Then Finish."),
+        .init(id: "bravo.switches", title: "Switches", device: .bravo, controls: (1...7).map { "bravo.sw\($0)" },
+              instruction: "Start with all seven switches down. Flip each one up, left to right. Then Finish."),
+        .init(id: "bravo.detents", title: "Lever detents", device: .bravo, controls: (1...6).map { "bravo.lever\($0).detent" },
+              instruction: "Start with all levers above the detent. Pull each lever below the detent, left to right. Then Finish."),
+    ]
+}
+
+/// Records the order in which bits first change. Within one packet, cleared bits come before newly set
+/// ones (leaving a position clears its bit as the next one sets).
+struct GroupLearner {
+    let group: ControlGroup
+    private(set) var previous: [UInt8]
+    private(set) var order: [Int] = []
+    init(group: ControlGroup, baseline: [UInt8]) { self.group = group; previous = baseline }
+    mutating func accept(_ payload: [UInt8]) {
+        let changed = ButtonBits.changed(previous, payload)
+        let cleared = changed.filter { !ButtonBits.isSet(payload, $0) }, set = changed.filter { ButtonBits.isSet(payload, $0) }
+        for bit in cleared + set where !order.contains(bit) { order.append(bit) }
+        previous = payload
+    }
+    /// Control → bit. All controls when the counts match; when exactly one bit is missing the first
+    /// control (e.g. OFF with no bit of its own) is left unassigned. Otherwise nil.
+    func assignment() -> [String: Int]? {
+        let n = group.controls.count
+        if order.count == n { return Dictionary(uniqueKeysWithValues: zip(group.controls, order)) }
+        if order.count == n - 1 { return Dictionary(uniqueKeysWithValues: zip(group.controls.dropFirst(), order)) }
+        return nil
+    }
+}
