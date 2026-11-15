@@ -54,6 +54,13 @@ final class GroupLearningTests: XCTestCase {
         XCTAssertEqual(map["alpha.mag.off"], 4); XCTAssertEqual(map["alpha.mag.right"], 5)
         XCTAssertEqual(map["alpha.mag.left"], 6); XCTAssertEqual(map["alpha.mag.both"], 7); XCTAssertEqual(map["alpha.mag.start"], 8)
     }
+    func testMagnetoOffLearnedOnReturn() throws {
+        let group = try XCTUnwrap(ControlGroup.all.first { $0.id == "alpha.magneto" })
+        var learner = GroupLearner(group: group, baseline: payload([]))                  // OFF reports nothing at start
+        for step in [[5], [6], [7], [8], [7], [6], [5], [], [4]] { learner.accept(payload(step)) } // R L BOTH START back… OFF
+        let map = try XCTUnwrap(learner.assignment())
+        XCTAssertEqual(map["alpha.mag.right"], 5); XCTAssertEqual(map["alpha.mag.start"], 8); XCTAssertEqual(map["alpha.mag.off"], 4)
+    }
     func testFirstPositionWithoutBitAndMismatch() throws {
         let group = try XCTUnwrap(ControlGroup.all.first { $0.id == "bravo.selector" })
         var learner = GroupLearner(group: group, baseline: payload([]))

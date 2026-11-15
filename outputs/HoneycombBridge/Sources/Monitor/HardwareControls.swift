@@ -151,11 +151,13 @@ struct ControlGroup: Identifiable {
     let device: HardwareControl.Device
     let controls: [String]
     let instruction: String
+    /// The sweep ends back on the first control (e.g. magneto OFF → … → START → OFF).
+    var returnsToStart = false
 
     static let all: [ControlGroup] = [
         .init(id: "alpha.magneto", title: "Magneto", device: .alpha,
               controls: ["alpha.mag.off", "alpha.mag.right", "alpha.mag.left", "alpha.mag.both", "alpha.mag.start"],
-              instruction: "Start with the key at OFF. Turn it one step at a time: R, L, BOTH, then hold START briefly and release. Then Finish."),
+              instruction: "Start with the key at OFF. Turn it one step at a time: R, L, BOTH, START, then all the way back to OFF. Then Finish.", returnsToStart: true),
         .init(id: "alpha.hat", title: "Hat", device: .alpha,
               controls: ["alpha.hat.up", "alpha.hat.right", "alpha.hat.down", "alpha.hat.left"],
               instruction: "Press the hat up, right, down, left — one press each, in that order. Then Finish."),
@@ -189,17 +191,27 @@ struct GroupLearner {
     let group: ControlGroup
     private(set) var previous: [UInt8]
     private(set) var order: [Int] = []
+    private(set) var firstWasCleared = false
     init(group: ControlGroup, baseline: [UInt8]) { self.group = group; previous = baseline }
     mutating func accept(_ payload: [UInt8]) {
         let changed = ButtonBits.changed(previous, payload)
         let cleared = changed.filter { !ButtonBits.isSet(payload, $0) }, set = changed.filter { ButtonBits.isSet(payload, $0) }
-        for bit in cleared + set where !order.contains(bit) { order.append(bit) }
+        for bit in cleared + set where !order.contains(bit) {
+            if order.isEmpty { firstWasCleared = !ButtonBits.isSet(payload, bit) }
+            order.append(bit)
+        }
         previous = payload
     }
     /// Control → bit. All controls when the counts match; when exactly one bit is missing the first
     /// control (e.g. OFF with no bit of its own) is left unassigned. Otherwise nil.
     func assignment() -> [String: Int]? {
         let n = group.controls.count
+        // Sweep that returns to its start: if the start position's bit wasn't held at the beginning
+        // (the first change was a bit being set), that bit shows up last when the sweep comes back.
+        if group.returnsToStart && !firstWasCleared && order.count == n {
+            let rotated = Array(group.controls.dropFirst()) + [group.controls[0]]
+            return Dictionary(uniqueKeysWithValues: zip(rotated, order))
+        }
         if order.count == n { return Dictionary(uniqueKeysWithValues: zip(group.controls, order)) }
         if order.count == n - 1 { return Dictionary(uniqueKeysWithValues: zip(group.controls.dropFirst(), order)) }
         return nil
