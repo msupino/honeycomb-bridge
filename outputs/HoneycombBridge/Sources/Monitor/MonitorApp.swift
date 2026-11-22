@@ -66,8 +66,11 @@ struct MonitorView: View {
                 Button("Calibrate for X-Plane…") { showCalibration = true }.buttonStyle(.bordered)
                 Toggle("X-Plane output", isOn: Binding(get: { model.simulatorEnabled }, set: model.setSimulatorEnabled))
                     .toggleStyle(.switch).disabled(!model.running || model.calibrations.isEmpty)
+                Toggle("Virtual joysticks", isOn: Binding(get: { model.virtualEnabled }, set: model.setVirtualEnabled))
+                    .toggleStyle(.switch)
+                    .help("Present Alpha, Bravo and Charlie to macOS as the original PC-mode USB devices, so X-Plane uses its own Honeycomb profiles. Turns off X-Plane output (plugin) to avoid double input.")
                 Spacer()
-                Text(model.simulatorStatus).font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(model.virtualEnabled ? model.virtualStatus : model.simulatorStatus).font(.system(size: 11)).foregroundStyle(.secondary)
             }
             DevicesPanel(model: model)
             if let error = model.error {

@@ -2,3 +2,5 @@
 .swiftpm/
 .DS_Store
 *.app/
+VirtualHID/build/
+VirtualHID/build.log

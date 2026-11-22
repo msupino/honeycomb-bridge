@@ -142,28 +142,13 @@ Or run live after preparing a mapping:
 
 Unmapped events are ignored. Invalid JSON/mappings fail with an error; the bridge attempts a neutral report before exiting. EOF also sends neutral. Stationary controls may not emit an initial value, so the mapper starts at neutral until events arrive. There is no inactivity timeout: silence can mean a stationary control. If a capture producer hangs without closing the pipe or reporting removal, the last state remains until stopped.
 
-## Optional virtual HID experiment
+## Virtual joysticks (native X-Plane detection)
 
-The normal bridge mode has **no virtual HID output**. `--virtual` attempts Apple's public `CoreHID.HIDVirtualDevice` API on macOS 15+. This is a user-space path, not a bundled DriverKit driver.
+Honeycomb Monitor can present the Xbox-mode Alpha, Bravo and Charlie to macOS as the original PC-mode USB devices
+(294B:1900/1901/1903) through the signed **Honeycomb Virtual HID** helper (CoreHID `HIDVirtualDevice`, managed
+entitlement granted to this team). X-Plane then detects them natively. See [VIRTUAL-HID.md](VIRTUAL-HID.md).
 
-[Apple's virtual device example](https://developer.apple.com/documentation/corehid/creatingvirtualdevices) describes creation, activation, delegates and input reports. Virtual creation on a stock system requires the managed [`com.apple.developer.hid.virtual.device` entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.hid.virtual.device), plus suitable signing/provisioning and applicable system permissions. Merely putting that key into a plist, ad-hoc signing, running as root, or compiling in Xcode does not grant it.
-
-The provided entitlement plist is a declaration to use **only after** Apple grants the matching capability to your team/App ID and provisioning profile. For an approved developer build, embed the bridge executable in a macOS application target/bundle, configure its bundle identifier, team, matching provisioning profile and Code Signing Entitlements in Xcode, and sign the main executable with that capability. Launch that signed executable from Terminal to retain stdin/stdout. Confirm the actual executable's entitlements and provisioning profile match using Xcode's signing details and `codesign -d --entitlements :- PATH_TO_EXECUTABLE`. No entitlement or provisioning profile is supplied here. Do not add a restricted entitlement to the ordinary probe build.
-
-Only once that setup exists, run the **signed executable's path** with:
-
-```sh
-PATH_TO_SIGNED_BRIDGE --mapping examples/mapping.synthetic.json --virtual \
-  < examples/input.synthetic.ndjson
-```
-
-If creation fails or report dispatch throws, the bridge reports an error and exits; it does not silently claim virtual output succeeded. Even a successful dispatch is only API acceptance, not proof that X-Plane or another game sees or uses the device. A file replay exits and removes the virtual service at EOF; use the live pipeline or keep stdin open while inspecting it in another app.
-
-The virtual descriptor is deliberately a generic prototype joystick: eight 16-bit signed axes (X, Y, Z, Rx, Ry, Rz, Slider, Dial), followed by 32 button bits, little-endian, **20 bytes with no report ID**. This is our output format, not the Honeycomb/Xbox wire format. Vendor ID 0 and product ID 1 are local prototype values, not borrowed Honeycomb/Microsoft IDs; obtain appropriate identifiers for distribution. The delegate answers input-report reads from the latest state and rejects unsupported requests. The eight-axis limit cannot represent every independent axis of the entire rig simultaneously; expand the descriptor and mapper only after measuring the source capabilities.
-
-Verify with an independent HID enumerator and then X-Plane's joystick configuration: device enumeration, live axis motion, button press/release, disconnect, and reconnect are separate checks. Do not use presence in System Settings → Game Controllers as the sole acceptance test for a generic flight joystick.
-
-A custom DriverKit solution is a different project with a host app, system extension, appropriate USB/HID family capabilities, signing/provisioning, and user approval. Follow [Apple's entitlement procedure](https://developer.apple.com/documentation/driverkit/requesting-entitlements-for-driverkit-development) for that path. This package ships no DEXT and claims no DriverKit entitlement access. This distinction also avoids relying on similarly named historical entitlement keys.
+The older `honeycomb-bridge --virtual` prototype (generic 8-axis joystick, local IDs) is superseded by this helper.
 
 ## Decision after the first capture
 

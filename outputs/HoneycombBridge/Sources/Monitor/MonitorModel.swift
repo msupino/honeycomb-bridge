@@ -37,6 +37,10 @@ final class MonitorModel: ObservableObject {
     @Published var groupDetected = 0
     private var bindingsURL: URL { profileURL.deletingLastPathComponent().appendingPathComponent("controls.json") }
     private let simulator = SimulatorSender()
+    private let virtualJoysticks = VirtualJoystickSender()
+    /// Virtual PC-mode joysticks via the Honeycomb Virtual HID helper (persists across launches).
+    @Published private(set) var virtualEnabled = UserDefaults.standard.bool(forKey: "virtualJoysticks")
+    @Published var virtualStatus = ""
     private var profileURL: URL {
         let parent = Bundle.main.bundleURL.pathExtension == "app" ? Bundle.main.bundleURL.deletingLastPathComponent() : URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         return parent.appendingPathComponent("calibration.json")
@@ -48,9 +52,23 @@ final class MonitorModel: ObservableObject {
         loadBindings()
         simulator.onStatus = { [weak self] status in Task { @MainActor [weak self] in self?.simulatorStatus = status } }
         updateSimulator()
+        if virtualEnabled { setVirtualEnabled(true) }
+    }
+    func setVirtualEnabled(_ on: Bool) {
+        virtualEnabled = on; UserDefaults.standard.set(on, forKey: "virtualJoysticks")
+        virtualJoysticks.setEnabled(on)
+        if on {
+            if simulatorEnabled { setSimulatorEnabled(false) }
+            virtualStatus = "Starting virtual joysticks…"
+            VirtualJoystickSender.launchHelper { [weak self] problem in
+                Task { @MainActor [weak self] in self?.virtualStatus = problem ?? "Virtual Alpha, Bravo and Charlie active" }
+            }
+        } else { VirtualJoystickSender.stopHelper(); virtualStatus = "" }
     }
     private func updateSimulator() { simulator.configure(calibrations, enabled: simulatorEnabled, charlie: charlieMode, charlieReversed: charlieReversed) }
-    func setSimulatorEnabled(_ enabled: Bool) { simulatorEnabled = enabled && (!calibrations.isEmpty || charlieMode != .calibrated) && running; updateSimulator() }
+    func setSimulatorEnabled(_ enabled: Bool) {
+        if enabled && virtualEnabled { setVirtualEnabled(false) }
+        simulatorEnabled = enabled && (!calibrations.isEmpty || charlieMode != .calibrated) && running; updateSimulator() }
     func beginLearning(_ axis: FlightAxis) {
         guard running, let baseline = state.lastPayload else { calibrationMessage = "Connect and move a control once before learning."; return }
         setSimulatorEnabled(false); candidate = nil; learningAxis = axis
@@ -248,7 +266,7 @@ final class MonitorModel: ObservableObject {
                 let exitStatus = task.terminationStatus
                 Task { @MainActor [weak self] in
                     guard let self, self.generation == token else { return }
-                    self.process = nil; self.running = false; self.simulator.setSourceRunning(false); self.setSimulatorEnabled(false)
+                    self.process = nil; self.running = false; self.simulator.setSourceRunning(false); self.virtualJoysticks.update(nil); self.setSimulatorEnabled(false)
                     if self.stopping { self.status = "Capture stopped" }
                     else if exitStatus == 0 { self.status = "Session finished · connect to start again" }
                     else { self.status = "Connection ended"; if self.error == nil { self.error = "The device could not finish the session. Check the USB connection and capture details." } }
@@ -278,7 +296,11 @@ final class MonitorModel: ObservableObject {
         while let newline = buffer.firstIndex(of: 10) {
             let line = Data(buffer[..<newline]); buffer.removeSubrange(...newline)
             if let payload = InputState.payload(from: line) {
-                state.accept(payload); simulator.update(route(payload)); learner?.accept(payload); learnButton(payload); status = "Receiving Xbox input"
+                state.accept(payload); simulator.update(route(payload))
+                if virtualEnabled {
+                    virtualJoysticks.update(VirtualJoystickMapping.map(payload, bindings: bindings, knobTarget: knobTarget, calibrations: calibrations,
+                                                                       charlie: charlieMode, charlieReversed: charlieReversed))
+                }; learner?.accept(payload); learnButton(payload); status = "Receiving Xbox input"
             } else if let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] {
                 switch event["event"] as? String {
                 case "gip_auth_verified": verified = true; status = "Session verified · waiting for input"

@@ -17,6 +17,7 @@ static BOOL integer(const uint8_t *bytes, NSUInteger size, NSUInteger *position,
 @property(nonatomic) NSUInteger sent;
 @property(nonatomic) uint8_t pendingSequence;
 @property(nonatomic, strong) GIPAuth *auth;
+@property(nonatomic) BOOL capabilitiesRequested;
 @end
 @implementation GIPClient
 @end
@@ -139,6 +140,20 @@ NSArray<NSData *> *GIPResearchResponses(GIPResearchState *state, NSData *packet,
             if (session.auth.failure) goto authFailed;
             for (NSData *authMessage in messages) appendAuth(state, client, session, authMessage, responses);
             [events addObject:@{@"event": session.auth.complete ? @"gip_auth_verified" : @"gip_auth_phase", @"client": @(client), @"phase": session.auth.phase}];
+            if (session.auth.complete && !session.capabilitiesRequested) {
+                // FlightStick vendor command 0x00 (device capabilities), as the Linux xbox_gip flight-stick driver sends.
+                // Non-system message: options carry no 0x20 flag; empty payload.
+                if (++state->sequence == 0) ++state->sequence;
+                uint8_t capabilities[] = {0, client, state->sequence, 0};
+                [responses addObject:[NSData dataWithBytes:capabilities length:sizeof(capabilities)]];
+                session.capabilitiesRequested = YES;
+                [events addObject:@{@"event": @"gip_capabilities_requested", @"client": @(client)}];
+            }
+        }
+        if (command == 0 && !(options & 32) && message) {
+            NSMutableString *hex = [NSMutableString string];
+            for (NSUInteger i = 0; i < message.length; i++) [hex appendFormat:@"%02x", ((const uint8_t *)message.bytes)[i]];
+            [events addObject:@{@"event": @"gip_capabilities_response", @"client": @(client), @"payload": hex}];
         }
         position += size;
         continue;

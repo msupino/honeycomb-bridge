@@ -1,0 +1,23 @@
+{"event":"usb_status","operation":"find_devices","status":0,"status_hex":"0x00000000","time":1795279404.0240622}
+{"event":"usb_status","operation":"device_plugin","status":0,"status_hex":"0x00000000","time":1795279404.02825}
+{"event":"usb_status","operation":"device_interface","status":0,"status_hex":"0x00000000","time":1795279404.0282822}
+{"event":"usb_status","operation":"configuration_count","status":0,"status_hex":"0x00000000","time":1795279404.0282888}
+{"event":"usb_status","operation":"get_configuration","status":0,"status_hex":"0x00000000","time":1795279404.0284529}
+{"event":"prior_configuration","time":1795279404.02846,"value":0}
+{"event":"usb_status","operation":"device_open","status":0,"status_hex":"0x00000000","time":1795279404.0284729}
+{"event":"usb_status","operation":"xone_usb_reset","status":0,"status_hex":"0x00000000","time":1795279404.0284848}
+{"event":"usb_status","operation":"set_configuration","status":0,"status_hex":"0x00000000","time":1795279404.028801}
+{"event":"usb_status","operation":"xone_find_audio_interface","status":0,"status_hex":"0x00000000","time":1795279404.0329561}
+{"event":"usb_status","operation":"xone_audio_interface_open","status":0,"status_hex":"0x00000000","time":1795279404.035059}
+{"event":"usb_status","operation":"xone_audio_interface_alt_zero","status":0,"status_hex":"0x00000000","time":1795279404.0352969}
+{"event":"usb_status","operation":"xone_audio_interface_close","status":0,"status_hex":"0x00000000","time":1795279404.0353169}
+{"event":"usb_status","operation":"find_interfaces","status":0,"status_hex":"0x00000000","time":1795279404.035485}
+{"event":"usb_status","operation":"interface_open","status":0,"status_hex":"0x00000000","time":1795279404.0356569}
+{"event":"usb_status","operation":"endpoint_count","status":0,"status_hex":"0x00000000","time":1795279404.035661}
+{"event":"usb_status","operation":"async_source","status":0,"status_hex":"0x00000000","time":1795279404.041688}
+{"endpoint":129,"event":"raw_read_started","interface":0,"note":"Source-backed authentication attempt; inspect gip_auth_verified or gip_auth_failed; no control mapping","packet_size":64,"pid":6404,"seconds":300,"time":1795279404.0417271,"vid":10571}
+{"event":"usb_status","operation":"queue_read","status":0,"status_hex":"0x00000000","time":1795279404.0417619}
+{"event":"raw_read_finished","packets":0,"time":1795279466.9635301}
+{"event":"usb_status","operation":"abort_read","status":0,"status_hex":"0x00000000","time":1795279466.963635}
+{"event":"usb_status","operation":"restore_configuration","status":0,"status_hex":"0x00000000","time":1795279466.9736838}
+{"event":"usb_status","operation":"device_close","status":0,"status_hex":"0x00000000","time":1795279466.9737139}

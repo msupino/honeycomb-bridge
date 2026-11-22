@@ -29,6 +29,16 @@ PLIST
 xattr -dr com.apple.FinderInfo "$app_dir" 2>/dev/null || true
 xattr -dr com.apple.ResourceFork "$app_dir" 2>/dev/null || true
 codesign --force --sign - "$app_dir/Contents/Helpers/honeycomb-usb-read"
+# Virtual HID helper: separately signed with the Apple Development identity and the provisioning profile that carries
+# com.apple.developer.hid.virtual.device. Skipped (with a note) when Xcode signing is not set up on this Mac.
+helper_build="$project_dir/VirtualHID/build"
+if xcodebuild -project "$project_dir/VirtualHID/VirtualHID.xcodeproj" -scheme VirtualHID -configuration Release \
+     -derivedDataPath "$helper_build" -allowProvisioningUpdates build >"$helper_build.log" 2>&1; then
+    rm -rf "$app_dir/Contents/Helpers/Honeycomb Virtual HID.app"
+    ditto "$helper_build/Build/Products/Release/Honeycomb Virtual HID.app" "$app_dir/Contents/Helpers/Honeycomb Virtual HID.app"
+else
+    printf 'Note: Virtual HID helper not built (see %s); virtual joysticks unavailable.\n' "$helper_build.log"
+fi
 codesign --force --sign - "$app_dir"
 codesign --verify --strict --deep "$app_dir"
 printf 'Built %s\n' "$app_dir"
