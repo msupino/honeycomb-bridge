@@ -49,11 +49,35 @@ let units = (alpha: VirtualUnit(VirtualJoystickLayout.alpha, location: 0x4843_00
              bravo: VirtualUnit(VirtualJoystickLayout.bravo, location: 0x4843_0002),
              charlie: VirtualUnit(VirtualJoystickLayout.charlie, location: 0x4843_0003))
 
+/// Real (non-virtual) Honeycomb units plugged straight into the Mac, by product ID. A unit present here is not
+/// duplicated as a virtual device (e.g. the Charlie on the Mac's USB reports true rudder and brakes itself).
+@MainActor final class RealDevices {
+    private let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+    private var cached: Set<UInt32> = []
+    private var checked = ContinuousClock.now - .seconds(10)
+    init() {
+        IOHIDManagerSetDeviceMatching(manager, [kIOHIDVendorIDKey: Int(VirtualJoystickLayout.vendorID)] as CFDictionary)
+    }
+    var productIDs: Set<UInt32> {
+        guard ContinuousClock.now - checked > .seconds(2) else { return cached }
+        checked = .now
+        let devices = (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>) ?? []
+        let found = Set(devices.compactMap { d -> UInt32? in
+            let transport = IOHIDDeviceGetProperty(d, kIOHIDTransportKey as CFString) as? String
+            guard transport != "Virtual" else { return nil }
+            return (IOHIDDeviceGetProperty(d, kIOHIDProductIDKey as CFString) as? NSNumber)?.uint32Value
+        })
+        if found != cached { log("real units on USB: \(found.map { String($0, radix: 16) }.sorted())") }
+        cached = found; return found
+    }
+}
+let realDevices = RealDevices()
+
 @MainActor func apply(_ s: VirtualJoysticks) async {
-    let r = VirtualJoystickLayout.reports(s)
-    if let a = r.alpha { await units.alpha.send(a) } else { units.alpha.remove() }
-    if let b = r.bravo { await units.bravo.send(b) } else { units.bravo.remove() }
-    if let c = r.charlie { await units.charlie.send(c) } else { units.charlie.remove() }
+    let r = VirtualJoystickLayout.reports(s), real = realDevices.productIDs
+    if let a = r.alpha, !real.contains(VirtualJoystickLayout.alpha.productID) { await units.alpha.send(a) } else { units.alpha.remove() }
+    if let b = r.bravo, !real.contains(VirtualJoystickLayout.bravo.productID) { await units.bravo.send(b) } else { units.bravo.remove() }
+    if let c = r.charlie, !real.contains(VirtualJoystickLayout.charlie.productID) { await units.charlie.send(c) } else { units.charlie.remove() }
 }
 @MainActor func removeAll() { units.alpha.remove(); units.bravo.remove(); units.charlie.remove() }
 
