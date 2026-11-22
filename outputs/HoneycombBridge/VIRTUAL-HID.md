@@ -37,7 +37,7 @@ The devices disappear 2 s after input stops (like unplugging); the helper quits 
 - **Two-position switches** (Alpha rockers, Bravo switches) press one of two buttons, as on the PC device.
 - **Alpha yoke** uses the monitor's roll/pitch calibration (including *Reversed*) when learned, raw otherwise.
 - **Charlie:** in Xbox mode rudder and toe brakes share two fields; the virtual pedals follow the Charlie mode
-  (Rudder → Z only; Toe brakes → X/Y only). For a separate rudder and brakes connect the Charlie to the Mac's USB.
+  (Rudder → Z only; Xbox-style → Z plus both brakes when both pedals are pressed; Toe brakes → X/Y only). For a separate rudder and brakes connect the Charlie to the Mac's USB.
 - **Provisional:** grip button order, Bravo switch polarity and lever-button numbers until checked on hardware.
 - **Bravo LEDs:** not driven yet (the Alpha reports 25 LEDs in its capabilities reply).
 

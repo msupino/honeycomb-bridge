@@ -62,6 +62,12 @@ final class SimulatorSender: @unchecked Sendable {
             switch charlieMode {
             case .rudder:
                 if let r = CharlieMode.rudder(latest, reversed: reversed) { values[FlightAxis.yaw.rawValue] = Float(r); mask = mask & ~brakes | yaw }
+            case .xbox:
+                if let x = CharlieMode.xbox(latest, reversed: reversed) {
+                    values[FlightAxis.yaw.rawValue] = Float(x.rudder)
+                    values[FlightAxis.leftBrake.rawValue] = Float(x.brakes); values[FlightAxis.rightBrake.rawValue] = Float(x.brakes)
+                    mask |= yaw | brakes
+                }
             case .brakes:
                 if let (l, r) = CharlieMode.fields(latest) {
                     values[FlightAxis.leftBrake.rawValue] = Float(reversed ? r : l); values[FlightAxis.rightBrake.rawValue] = Float(reversed ? l : r)

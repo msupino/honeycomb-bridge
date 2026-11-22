@@ -321,10 +321,10 @@ struct CharlieLayout: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Picker("", selection: $model.charlieMode) { ForEach(CharlieMode.allCases) { Text($0.rawValue).tag($0) } }
-                            .pickerStyle(.segmented).labelsHidden().frame(width: 420)
+                            .pickerStyle(.segmented).labelsHidden().frame(width: 520)
                         Toggle("Reverse", isOn: $model.charlieReversed).toggleStyle(.switch)
                     }
-                    Text("In Xbox mode the Hub merges Charlie into two one-way fields (29 and 31): rudder travel and toe brakes share them and cannot be separated. Rudder = field 31 − field 29. Toe brakes = 29 left, 31 right. Calibrated uses the learned mappings below.")
+                    Text("In Xbox mode the Hub sends Charlie as two one-way fields (29 and 31) shared by rudder travel and toe brakes. Rudder: rudder = 31 − 29, no brakes. Xbox-style: rudder = 31 − 29, plus both brakes when both pedals are pressed together (as the Xbox behaves); a single toe brake reads as rudder. Toe brakes: 29 left, 31 right, no rudder. Calibrated uses the learned mappings below.")
                         .font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }

@@ -92,6 +92,17 @@ int main(int argc, const char *argv[]) {
         for (int i = 1; i < argc; i++) {
             if (!strcmp(argv[i], "--gip-authenticate")) { gip.authenticate = YES; gip.powerAfterIdentify = YES; gipIdentify = YES; xoneSetup = YES; continue; }
             if (!strcmp(argv[i], "--gip-session-complete")) { gip.completeAfterPower = YES; gip.powerAfterIdentify = YES; gipIdentify = YES; xoneSetup = YES; continue; }
+            if (!strcmp(argv[i], "--gip-after-auth") && i + 1 < argc) {
+                // Comma-separated hex frames (cmd, options, seq placeholder, length, payload…) sent after authentication.
+                NSMutableArray *frames = [NSMutableArray array];
+                for (NSString *h in [@(argv[++i]) componentsSeparatedByString:@","]) {
+                    if (h.length % 2 || h.length < 8) { fprintf(stderr, "Invalid --gip-after-auth frame: %s\n", h.UTF8String); return 2; }
+                    NSMutableData *d = [NSMutableData data];
+                    for (NSUInteger k = 0; k < h.length; k += 2) { unsigned v; sscanf([h substringWithRange:NSMakeRange(k, 2)].UTF8String, "%2x", &v); uint8_t b = v; [d appendBytes:&b length:1]; }
+                    [frames addObject:d];
+                }
+                gip.afterAuth = CFBridgingRetain(frames); continue;
+            }
             if (!strcmp(argv[i], "--gip-power-on")) { gip.powerAfterIdentify = YES; gipIdentify = YES; xoneSetup = YES; continue; }
             if (!strcmp(argv[i], "--gip-self-test")) { BOOL ok = GIPResearchSelfTest(); puts(ok ? "GIP self-tests passed" : "GIP self-tests failed"); return ok ? 0 : 1; }
             if (!strcmp(argv[i], "--gip-identify")) { gipIdentify = YES; xoneSetup = YES; continue; }

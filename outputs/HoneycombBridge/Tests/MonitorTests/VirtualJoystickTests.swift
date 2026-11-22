@@ -69,4 +69,18 @@ final class VirtualJoystickTests: XCTestCase {
         XCTAssertEqual(hat(0b1010), 4); XCTAssertEqual(hat(0b0010), 5); XCTAssertEqual(hat(0b0110), 6); XCTAssertEqual(hat(0b0100), 7)
         XCTAssertEqual(hat(0b0101), 8)
     }
+
+    func testXboxStyleCharlie() throws {
+        func payload(_ f29: Int, _ f31: Int) -> [UInt8] {
+            var p = [UInt8](repeating: 0, count: 43)
+            p[29] = UInt8((f29 & 3) << 6); p[30] = UInt8(f29 >> 2); p[31] = UInt8((f31 & 3) << 6); p[32] = UInt8(f31 >> 2); return p
+        }
+        let left = try XCTUnwrap(CharlieMode.xbox(payload(0, 1023), reversed: false))
+        XCTAssertEqual(left.rudder, 1, accuracy: 0.001); XCTAssertEqual(left.brakes, 0)          // rudder only, no brakes
+        let both = try XCTUnwrap(CharlieMode.xbox(payload(1023, 1023), reversed: false))
+        XCTAssertEqual(both.rudder, 0, accuracy: 0.001); XCTAssertEqual(both.brakes, 1, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(CharlieMode.xbox(payload(0, 1023), reversed: true)).rudder, -1, accuracy: 0.001)
+        let s = try XCTUnwrap(VirtualJoystickMapping.map(payload(512, 1023), bindings: [:], knobTarget: .hdg, calibrations: [], charlie: .xbox, charlieReversed: false)?.charlie)
+        XCTAssertGreaterThan(s.rudder, 40000); XCTAssertEqual(s.leftBrake, s.rightBrake); XCTAssertGreaterThan(s.leftBrake, 30000)
+    }
 }

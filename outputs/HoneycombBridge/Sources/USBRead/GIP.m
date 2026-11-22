@@ -29,6 +29,7 @@ static GIPClient *clientState(GIPResearchState *state, unsigned client) {
 }
 void GIPResearchDispose(GIPResearchState *state) {
     if (state->clients) { CFRelease(state->clients); state->clients = NULL; }
+    if (state->afterAuth) { CFRelease(state->afterAuth); state->afterAuth = NULL; }
 }
 static NSData *varint(uint32_t value) {
     NSMutableData *bytes = [NSMutableData data];
@@ -151,6 +152,15 @@ NSArray<NSData *> *GIPResearchResponses(GIPResearchState *state, NSData *packet,
                 uint8_t capabilities[] = {0, client, state->sequence, 0};
                 [responses addObject:[NSData dataWithBytes:capabilities length:sizeof(capabilities)]];
                 session.capabilitiesRequested = YES;
+                // Research: extra raw frames after authentication (--gip-after-auth); byte 2 is replaced by a fresh sequence.
+                for (NSData *raw in (__bridge NSArray *)state->afterAuth) {
+                    NSMutableData *f = [raw mutableCopy];
+                    if (f.length >= 4) { if (++state->sequence == 0) ++state->sequence; ((uint8_t *)f.mutableBytes)[2] = state->sequence; ((uint8_t *)f.mutableBytes)[1] |= client; }
+                    [responses addObject:f];
+                    NSMutableString *hex = [NSMutableString string];
+                    for (NSUInteger i = 0; i < f.length; i++) [hex appendFormat:@"%02x", ((const uint8_t *)f.bytes)[i]];
+                    [events addObject:@{@"event": @"gip_after_auth_sent", @"hex": hex}];
+                }
                 [events addObject:@{@"event": @"gip_capabilities_requested", @"client": @(client)}];
             }
         }

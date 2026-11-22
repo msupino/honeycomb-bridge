@@ -12,7 +12,7 @@ enum FlightAxis: Int, Codable, CaseIterable, Identifiable {
 /// In Xbox mode the Hub reports Charlie as two one-way 10-bit fields (payload 29/30 and 31/32).
 /// Rudder travel and the toe brakes land in the same two fields, so the user picks how to use them.
 enum CharlieMode: String, CaseIterable, Identifiable, Codable {
-    case rudder = "Rudder", brakes = "Toe brakes", calibrated = "Calibrated mappings"
+    case rudder = "Rudder", xbox = "Xbox-style", brakes = "Toe brakes", calibrated = "Calibrated mappings"
     var id: String { rawValue }
     static func fields(_ p: [UInt8]) -> (Double, Double)? {
         guard p.count >= 33 else { return nil }
@@ -22,6 +22,13 @@ enum CharlieMode: String, CaseIterable, Identifiable, Codable {
     static func rudder(_ p: [UInt8], reversed: Bool) -> Double? {
         guard let (a, b) = fields(p) else { return nil }
         let v = max(-1, min(1, b - a)); return reversed ? -v : v
+    }
+    /// Xbox-style: rudder = field 31 − field 29, and the part both fields share (both pedals pressed at once,
+    /// which rudder travel never does) is applied to both toe brakes. A single toe brake still reads as rudder.
+    static func xbox(_ p: [UInt8], reversed: Bool) -> (rudder: Double, brakes: Double)? {
+        guard let (a, b) = fields(p) else { return nil }
+        let v = max(-1, min(1, b - a))
+        return (reversed ? -v : v, min(a, b))
     }
 }
 

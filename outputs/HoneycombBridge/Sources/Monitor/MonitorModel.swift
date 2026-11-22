@@ -14,7 +14,7 @@ final class MonitorModel: ObservableObject {
     @Published var charlieRaw = (0, 0)
     @Published var knobTarget: KnobTarget = .hdg
     private var knobRouter = KnobRouter()
-    @Published var charlieMode: CharlieMode = CharlieMode(rawValue: UserDefaults.standard.string(forKey: "charlieMode") ?? "") ?? .rudder {
+    @Published var charlieMode: CharlieMode = CharlieMode(rawValue: UserDefaults.standard.string(forKey: "charlieMode") ?? "") ?? .xbox {
         didSet { UserDefaults.standard.set(charlieMode.rawValue, forKey: "charlieMode"); updateSimulator() }
     }
     @Published var charlieReversed = UserDefaults.standard.bool(forKey: "charlieReversed") {

@@ -81,6 +81,10 @@ enum VirtualJoystickMapping {
         switch charlie {
         case .rudder:
             if let v = CharlieMode.rudder(payload, reversed: charlieReversed) { pedals.rudder = bipolar(v) }
+        case .xbox:
+            if let x = CharlieMode.xbox(payload, reversed: charlieReversed) {
+                pedals.rudder = bipolar(x.rudder); pedals.leftBrake = unipolar(x.brakes); pedals.rightBrake = unipolar(x.brakes)
+            }
         case .brakes:
             if let (lb, rb) = CharlieMode.fields(payload) {
                 pedals.leftBrake = unipolar(charlieReversed ? rb : lb); pedals.rightBrake = unipolar(charlieReversed ? lb : rb)

@@ -30,6 +30,9 @@ struct ControlsSnapshot: Equatable {
         if let r = calibrated(.rightBrake) { rightBrake = r }
         switch charlie {
         case .rudder: rudder = CharlieMode.rudder(p, reversed: charlieReversed); leftBrake = 0; rightBrake = 0; brakesCalibrated = true
+        case .xbox:
+            if let x = CharlieMode.xbox(p, reversed: charlieReversed) { rudder = x.rudder; leftBrake = x.brakes; rightBrake = x.brakes }
+            brakesCalibrated = true
         case .brakes:
             if let (l, r) = CharlieMode.fields(p) { leftBrake = charlieReversed ? r : l; rightBrake = charlieReversed ? l : r }
             rudder = nil; brakesCalibrated = true
