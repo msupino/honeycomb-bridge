@@ -217,6 +217,7 @@ final class MonitorModel: ObservableObject {
     private var errors: Pipe?
     private var buffer = Data()
     private var capture: FileHandle?
+    private var captureBytes = 0
     private var stopping = false
     private var generation = UUID()
 
@@ -238,11 +239,11 @@ final class MonitorModel: ObservableObject {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let url = directory.appendingPathComponent("monitor-\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString.prefix(6)).ndjson")
             guard FileManager.default.createFile(atPath: url.path, contents: nil) else { throw CocoaError(.fileWriteUnknown) }
-            capture = try FileHandle(forWritingTo: url); captureURL = url
+            capture = try FileHandle(forWritingTo: url); captureURL = url; captureBytes = 0
             let task = Process(), stdout = Pipe(), stderr = Pipe()
             output = stdout; errors = stderr
             task.executableURL = helper
-            task.arguments = ["--vid", "0x294b", "--pid", "0x1904", "--configuration", "1", "--interface", "0", "--endpoint", "0x81", "--gip-authenticate", "--seconds", "300"]
+            task.arguments = ["--vid", "0x294b", "--pid", "0x1904", "--configuration", "1", "--interface", "0", "--endpoint", "0x81", "--gip-authenticate", "--seconds", "0"]  // run until Disconnect
             task.standardOutput = stdout; task.standardError = stderr
             stdout.fileHandleForReading.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
@@ -290,6 +291,9 @@ final class MonitorModel: ObservableObject {
     }
 
     private func receive(_ data: Data) {
+        // Keep the raw capture bounded (~25 MB, roughly 30 min of input); the live session continues past it.
+        if captureBytes > 25_000_000, let handle = capture { try? handle.close(); capture = nil }
+        captureBytes += data.count
         do { try capture?.write(contentsOf: data) }
         catch { self.error = "Capture could not be saved: \(error.localizedDescription)"; stop() }
         buffer.append(data)

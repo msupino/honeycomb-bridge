@@ -97,7 +97,7 @@ int main(int argc, const char *argv[]) {
             if (!strcmp(argv[i], "--gip-identify")) { gipIdentify = YES; xoneSetup = YES; continue; }
             if (!strcmp(argv[i], "--xone-setup")) { xoneSetup = YES; continue; }
             if (!strcmp(argv[i], "--help")) {
-                puts("honeycomb-usb-read --vid ID --pid ID --configuration N --interface N --endpoint 0x81 [--seconds 30] [--xone-setup] [--gip-identify] [--gip-power-on] [--gip-session-complete] [--gip-authenticate]\n--gip-authenticate performs the source-backed challenge/key-exchange handshake and verifies the device finish; rejects mixing with experimental session-complete.\n--gip-session-complete additionally sends the xone-defined completion message experimentally; this does not perform cryptographic authentication.\n--gip-power-on additionally sends GIP power-on after completed identification; no authentication or control decoding.\n--gip-identify adds source-backed GIP identify replies and acknowledgements. It does not authenticate, power on, or decode controls.\n--xone-setup: for measured 294b:1904 configuration 1/interface 0/endpoint 0x81 only, reset USB and set interface 1 alternate 0 following xone wired startup. No GIP commands are sent.\nSelects an explicitly advertised USB configuration, opens one interface without seizure and records interrupt IN packets. Sends no vendor/Xbox commands. Attempts to restore the prior configuration on exit. Duration 1..300 seconds; Ctrl-C also stops."); return 0;
+                puts("honeycomb-usb-read --vid ID --pid ID --configuration N --interface N --endpoint 0x81 [--seconds 30|0] [--xone-setup] [--gip-identify] [--gip-power-on] [--gip-session-complete] [--gip-authenticate]\n--gip-authenticate performs the source-backed challenge/key-exchange handshake and verifies the device finish; rejects mixing with experimental session-complete.\n--gip-session-complete additionally sends the xone-defined completion message experimentally; this does not perform cryptographic authentication.\n--gip-power-on additionally sends GIP power-on after completed identification; no authentication or control decoding.\n--gip-identify adds source-backed GIP identify replies and acknowledgements. It does not authenticate, power on, or decode controls.\n--xone-setup: for measured 294b:1904 configuration 1/interface 0/endpoint 0x81 only, reset USB and set interface 1 alternate 0 following xone wired startup. No GIP commands are sent.\nSelects an explicitly advertised USB configuration, opens one interface without seizure and records interrupt IN packets. Sends no vendor/Xbox commands. Attempts to restore the prior configuration on exit. Duration 1..300 seconds, or 0 to run until stopped; Ctrl-C (SIGINT) stops."); return 0;
             }
             const char *key = argv[i];
             if (i + 1 >= argc) { fprintf(stderr, "Missing value for %s\n", key); return 2; }
@@ -110,7 +110,7 @@ int main(int argc, const char *argv[]) {
             else if (!strcmp(key, "--seconds")) seconds = number(value, 300);
             else { fprintf(stderr, "Unknown option: %s\n", key); return 2; }
         }
-        if (vid < 0 || pid < 0 || configuration < 1 || interfaceNumber < 0 || endpoint < 128 || !(endpoint & 15) || (endpoint & 0x70) || seconds < 1) {
+        if (vid < 0 || pid < 0 || configuration < 1 || interfaceNumber < 0 || endpoint < 128 || !(endpoint & 15) || (endpoint & 0x70) || seconds < 0) {
             fprintf(stderr, "Explicit VID, PID, configuration, interface and IN endpoint are required; use --help.\n"); return 2;
         }
         if (xoneSetup && (vid != 0x294b || pid != 0x1904 || configuration != 1 || interfaceNumber != 0 || endpoint != 0x81)) {
@@ -194,7 +194,7 @@ int main(int argc, const char *argv[]) {
         transfer = calloc(1, sizeof(Transfer));
         if (!transfer) goto cleanup;
         transfer->complete = YES;
-        double deadline = CFAbsoluteTimeGetCurrent() + seconds; unsigned packets = 0;
+        double deadline = seconds ? CFAbsoluteTimeGetCurrent() + seconds : INFINITY; unsigned packets = 0;  // --seconds 0: until stopped
         emit(@{@"event": @"raw_read_started", @"vid": @(vid), @"pid": @(pid), @"interface": @(interfaceNumber), @"endpoint": @(endpoint), @"packet_size": @(packetSize), @"seconds": @(seconds), @"note": gip.authenticate ? @"Source-backed authentication attempt; inspect gip_auth_verified or gip_auth_failed; no control mapping" : gipIdentify ? @"GIP research mode; identify/acknowledgements and optional explicit power-on/session-complete; no cryptographic authentication or control mapping" : @"No vendor-specific or Xbox initialization packets sent"});
         success = YES;
         while (!stopping && CFAbsoluteTimeGetCurrent() < deadline) {

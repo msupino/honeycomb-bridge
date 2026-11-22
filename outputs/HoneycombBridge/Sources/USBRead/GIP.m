@@ -89,7 +89,11 @@ NSArray<NSData *> *GIPResearchResponses(GIPResearchState *state, NSData *packet,
                 end & 255, (end >> 8) & 255, 0, 0, remaining & 255, (remaining >> 8) & 255};
             [responses addObject:[NSData dataWithBytes:ack length:sizeof(ack)]];
         }
-        if (command == 2 && (options & 32) && !(options & 128) && size == 28 && !state->requested[client]) {
+        // A device already in a session (e.g. after macOS's own Xbox driver held it) sends only status
+        // keep-alives (command 3) and never re-announces; request identification on the first one.
+        BOOL resumeSession = command == 3 && (options & 32) && !(options & 128) && state->authenticate && !state->requested[client];
+        if ((command == 2 && (options & 32) && !(options & 128) && size == 28 && !state->requested[client]) || resumeSession) {
+            if (resumeSession) [events addObject:@{@"event": @"gip_identify_without_announce", @"client": @(client)}];
             if (++state->sequence == 0) ++state->sequence;
             uint8_t identify[] = {4, 0x20 | client, state->sequence, 0};
             [responses addObject:[NSData dataWithBytes:identify length:sizeof(identify)]];
